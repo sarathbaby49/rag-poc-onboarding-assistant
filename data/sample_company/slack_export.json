@@ -1,0 +1,10 @@
+{
+  "channel": "#eng-help",
+  "messages": [
+    {"user": "priya", "text": "New joinee tip: if `make migrate` fails with 'connection refused', the postgres container isn't up yet. Run `docker compose up -d postgres` and wait ~5 seconds."},
+    {"user": "sam", "text": "Reminder: never store money as a float. We use integer cents everywhere. See architecture.md."},
+    {"user": "lena", "text": "If the login smoke test is flaky locally too, it's PAY-101, not your machine. Re-run `make smoke`."},
+    {"user": "dev-bot", "text": "Deploy access is managed by the platform team. Open a request in #platform-requests; do not share prod credentials in DMs."},
+    {"user": "priya", "text": "The API explorer at /docs is the fastest way to learn the endpoints — try it before reading the code."}
+  ]
+}

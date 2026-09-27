@@ -1,0 +1,6 @@
+{"question": "How do I set up my local development environment?", "expected_points": ["clone the repo", "python -m venv / install deps", "copy .env", "run the app"], "expected_source": "data/sample_company/setup.md"}
+{"question": "What database does the service use?", "expected_points": ["PostgreSQL"], "expected_source": "data/sample_company/architecture.md"}
+{"question": "How are users authenticated?", "expected_points": ["JWT", "token"], "expected_source": "data/sample_company/code/auth.py"}
+{"question": "Who do I ask about deployment access?", "expected_points": ["platform team", "#eng-help"], "expected_source": "data/sample_company/setup.md"}
+{"question": "What is the ticket about the flaky login test?", "expected_points": ["login", "flaky", "test"], "expected_source": "data/sample_company/tickets.jsonl"}
+{"question": "What is the overall architecture of the system?", "expected_points": ["API gateway", "services", "PostgreSQL"], "expected_source": "data/sample_company/architecture.md"}
