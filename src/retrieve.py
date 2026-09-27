@@ -69,9 +69,6 @@ def hybrid_search(query: str, k: int = config.TOP_K) -> list[dict]:
          robust blend is reciprocal rank fusion: score = sum(1 / (C + rank)) over
          both ranked lists (C≈60), then sort by the fused score.
       4. Return the top-k.
-
-    Until you implement it, this falls back to plain semantic search so the rest
-    of the app still runs once R1 is done.
     """
     # TODO(R2): replace this fallback with a real BM25 + semantic blend.
     raise NotImplementedError("Exercise R2: implement hybrid_search — see EXERCISES.md")
