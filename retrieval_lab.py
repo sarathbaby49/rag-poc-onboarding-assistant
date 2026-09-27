@@ -404,7 +404,7 @@ with tab_chat:
     )
     with st.form("ask", clear_on_submit=True):
         prompt = st.text_input(
-            "query", placeholder="Ask the knowledge base…  e.g. how does checkout work?",
+            "query", placeholder="Ask the knowledge base…  e.g. what payment providers do we use?",
             label_visibility="collapsed",
         )
         submitted = st.form_submit_button("🔎  Search", type="primary")
