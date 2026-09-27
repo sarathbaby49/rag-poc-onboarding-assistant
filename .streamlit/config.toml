@@ -1,0 +1,8 @@
+# Forces a consistent blue + soft-white look regardless of the machine's Streamlit theme.
+[theme]
+base = "light"
+primaryColor = "#2563eb"              # blue — buttons, slider, radio, links
+backgroundColor = "#e7ecf5"           # soft cool off-white page (a bit darker than pure white)
+secondaryBackgroundColor = "#ffffff"  # white sidebar / inputs / cards, so they pop off the page
+textColor = "#0f172a"                 # slate-900 (near-black on the light page)
+font = "sans serif"

@@ -74,7 +74,7 @@ def hybrid_search(query: str, k: int = config.TOP_K) -> list[dict]:
     of the app still runs once R1 is done.
     """
     # TODO(R2): replace this fallback with a real BM25 + semantic blend.
-    return semantic_search(query, k)
+    raise NotImplementedError("Exercise R2: implement hybrid_search — see EXERCISES.md")
 
 
 def confident_hits(query: str, k: int = config.TOP_K, min_score: float = 0.25) -> list[dict]:

@@ -45,7 +45,7 @@ streamlit run retrieval_lab.py
 | ✅ Works | Ingestion pipeline + the dials | `src/ingest.py`, `src/config.py` |
 | ✅ Works | Retrieval intuition explorer (no key) | `explore.py` |
 | ✅ Works | **Retrieval Lab** — chat UI + ingestion controls + vector map | `retrieval_lab.py` |
-| 📝 **Exercise** | **Ingestion** — boundary-aware chunking (I1) | `src/ingest.py` |
+| 📝 **Exercise** | **Ingestion** — boundary-aware chunking (I1), bring your own data (I2) | `src/ingest.py`, `data/` |
 | 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |

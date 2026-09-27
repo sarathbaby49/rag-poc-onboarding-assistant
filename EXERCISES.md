@@ -56,7 +56,7 @@ python -m checks.check_memory        # M1, M2
 |------|------|
 | 0:00–0:10 | Concept: embeddings, cosine, ingest → store → retrieve. Live-drive `explore.py`. |
 | 0:10–0:22 | **R1** — `semantic_search` (everyone) · self-check |
-| 0:22–0:38 | Pick your depth: **E1** cosine · **I1** smarter chunking · **R3** confidence · **E2** swap model |
+| 0:22–0:38 | Pick your depth: **E1** cosine · **I1** smarter chunking · **I2** bring your own data · **R3** confidence · **E2** swap model |
 | 0:38–0:48 | Memory: **M1** session window · **M2** profile persistence |
 | 0:48–0:50 | Recap: how it all feeds the RAG-generation layer next. |
 
@@ -82,6 +82,39 @@ to the last `" "` (or `"\n"`) with `rfind`, cut there, then advance
 `start = end - overlap`. To use it for real: point `build_index` at
 `chunk_text_smart` and re-run `python -m src.ingest`, then `explore.py query` to
 compare.
+
+### I2 (explore 🔵) — Bring your own data · ⏱️ ~10 min
+**Files:** add a new file under `data/sample_company/` (any `.md`, `.txt`, `.py`,
+`.json`, or `.jsonl` — those are the types ingest reads).
+**Goal:** run the whole ingest → retrieve loop on data *you* wrote, and get a feel
+for what makes retrieval work well (or not).
+
+**Steps:**
+1. Create a document with a few facts only *you* know — e.g.
+   `data/sample_company/my_notes.md` with a couple of short Q&A-style paragraphs
+   (a mini runbook, a made-up policy, your team's quirks).
+2. Re-ingest so it's embedded and stored:
+   - CLI: `python -m src.ingest`, **or**
+   - click **🔁 Re-ingest data** in the Retrieval Lab (`streamlit run retrieval_lab.py`).
+3. Query for something only your file answers — in the Lab's chat box or
+   `python explore.py query "…"`.
+
+**What "done" looks like** (no automated check — you're the judge):
+- A question phrased *like your text* retrieves your file at rank 1–2 with a
+  healthy score.
+- Then try a **paraphrase** that shares no exact words. Does it still surface? If
+  not, that's the chunking/wording lesson — tighten the doc or adjust chunk size.
+
+**Things to try:**
+- Add a long file and watch it become several chunks (the count grows, and a new
+  cluster appears on the **Vector map**).
+- Add a code file with a distinctive symbol, then compare `explore.py query` vs
+  `explore.py keyword` on that symbol (motivates hybrid search, R2).
+- Ask something your data does *not* cover and watch the scores drop — the
+  motivation for the R3 confidence threshold.
+
+**Tidy up:** delete your file and re-ingest to return to the standard corpus (or
+keep it — your call).
 
 ---
 
@@ -133,6 +166,12 @@ then **re-ingest** and compare.
 - `_collection().query(query_embeddings=..., n_results=k)` returns parallel lists
   in `res["documents"][0]`, `res["metadatas"][0]`, `res["distances"][0]`.
 
+**See YOUR code working:** the automated check is `python -m checks.check_retrieval`.
+To watch it live, open the **Retrieval Lab** (`streamlit run retrieval_lab.py`) and set
+the sidebar **Backend** to *My semantic_search (R1)* — the chat and the vector map now
+run on **your** function. (Before it's implemented, that backend shows a reminder;
+switch to *Built-in* to compare against the reference.)
+
 ### R3 (extra 🟡) — Confidence threshold / "I don't know" · ⏱️ ~8 min
 **File:** `src/retrieve.py` → `confident_hits()`  · *(needs R1 done)*
 **Goal:** drop weak matches so an off-topic question returns *nothing* instead of
@@ -156,6 +195,10 @@ honestly says "I don't know."
 **Hint:** build a `rank_bm25.BM25Okapi` over all chunk texts, then combine the two
 ranked lists with **reciprocal rank fusion**: `score += 1 / (60 + rank)` for each
 list, then sort by the fused score. No weight tuning needed.
+
+**See it live:** in the Retrieval Lab, flip the **Backend** between *My semantic_search
+(R1)* and *My hybrid_search (R2)* and query an exact code symbol (e.g. `getUserToken`)
+— your hybrid version should rank the code file higher.
 
 ---
 
