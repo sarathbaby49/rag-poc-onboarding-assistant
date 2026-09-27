@@ -1,10 +1,8 @@
-{"question": "How do I set up my local development environment?", "expected_points": ["clone the repo", "python -m venv / install deps", "copy .env", "run the app"], "expected_source": "data/sample_company/setup.md"}
-{"question": "What database does the platform use?", "expected_points": ["PostgreSQL"], "expected_source": "data/sample_company/architecture.md"}
-{"question": "How are users authenticated?", "expected_points": ["JWT", "token"], "expected_source": "data/sample_company/code/auth.py"}
-{"question": "Who do I ask about deployment access?", "expected_points": ["platform team", "#platform-requests"], "expected_source": "data/sample_company/deployment.md"}
-{"question": "What is the ticket about the flaky login test?", "expected_points": ["login", "flaky", "test"], "expected_source": "data/sample_company/tickets.jsonl"}
-{"question": "What is the overall architecture of the system?", "expected_points": ["API gateway", "services", "PostgreSQL"], "expected_source": "data/sample_company/architecture.md"}
-{"question": "How does checkout work?", "expected_points": ["reserve", "payment", "order", "idempotency"], "expected_source": "data/sample_company/code/checkout.py"}
-{"question": "How do we prevent overselling?", "expected_points": ["reserve", "stock", "OutOfStock"], "expected_source": "data/sample_company/code/inventory.py"}
-{"question": "What are the possible order states?", "expected_points": ["pending", "paid", "shipped", "refunded"], "expected_source": "data/sample_company/code/orders.py"}
-{"question": "What were our Q2 sales figures?", "expected_points": ["GMV", "AOV", "orders"], "expected_source": "data/sample_company/sales/sales_q2_2026.md"}
+{"question": "What payment providers do we use?", "expected_points": ["Stripe", "PayPal", "Razorpay"], "expected_source": "data/sample_company/payments.md"}
+{"question": "What is the default payment provider?", "expected_points": ["Stripe", "default"], "expected_source": "data/sample_company/payments.md"}
+{"question": "Which payment provider is used for India?", "expected_points": ["Razorpay", "UPI"], "expected_source": "data/sample_company/payments.md"}
+{"question": "How is authentication set up?", "expected_points": ["JWT", "refresh", "bcrypt"], "expected_source": "data/sample_company/authentication.md"}
+{"question": "How are user passwords stored?", "expected_points": ["bcrypt", "hashed"], "expected_source": "data/sample_company/authentication.md"}
+{"question": "How do I set up the project locally?", "expected_points": ["clone", "pip install", "docker compose", "make run"], "expected_source": "data/sample_company/setup.md"}
+{"question": "Which ticket adds Google social login?", "expected_points": ["Google", "OAuth"], "expected_source": "data/sample_company/jira_export.jsonl"}
+{"question": "Which ticket adds Razorpay support?", "expected_points": ["Razorpay", "India"], "expected_source": "data/sample_company/jira_export.jsonl"}

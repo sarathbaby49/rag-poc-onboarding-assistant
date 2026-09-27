@@ -59,9 +59,9 @@ def main() -> None:
     # --- R2: hybrid_search (stretch, not counted) ----------------------------
     print("\n-- R2: hybrid_search (stretch, optional) --")
     try:
-        hits = hybrid_search("getUserToken", k=4)
+        hits = hybrid_search("issue_refresh_token", k=4)
         found = any("auth.py" in h["source"] for h in hits)
-        print(f"{'✅' if found else '⚠️ '} 'getUserToken' surfaces code/auth.py in top-k"
+        print(f"{'✅' if found else '⚠️ '} 'issue_refresh_token' surfaces code/auth.py in top-k"
               f"{'' if found else '  (semantic alone often misses exact symbols — that is the point of hybrid)'}")
     except NotImplementedError:
         print("⚠️  not implemented yet (optional) — see EXERCISES.md (R2)")

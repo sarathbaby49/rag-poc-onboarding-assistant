@@ -18,7 +18,7 @@ session's presenter and participants fill in.
 python3 -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-python -m src.ingest          # builds the local vector index → "Indexed 57 chunks"
+python -m src.ingest          # builds the local vector index → "Indexed 31 chunks"
 ```
 
 Then head to **[EXERCISES.md](EXERCISES.md)** for the hands-on tasks.
@@ -88,8 +88,8 @@ onboarding-assistant-rag/
 ├── EXERCISES.md              # the hands-on tasks + run-of-show
 ├── explore.py                # ✅ retrieval intuition tool (no key)
 ├── app.py                    # 🔒 Streamlit UI (works once src/rag.py is built)
-├── data/sample_company/      # Acme e-commerce corpus: service code, docs,
-│                             #   Slack channels, tickets, sales report (~57 chunks)
+├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
+│                             #   code, a Jira export & Slack history (~31 chunks)
 ├── checks/                   # self-check scripts (pass/fail)
 │   ├── check_retrieval.py
 │   └── check_memory.py

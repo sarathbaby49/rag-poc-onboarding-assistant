@@ -20,21 +20,21 @@ on it); the rest add depth — pick what fits your time. Difficulty: 🟢 easy �
 python3 -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-python -m src.ingest          # builds the vector index → "Indexed 57 chunks"
+python -m src.ingest          # builds the vector index → "Indexed 31 chunks"
 ```
 
-The sample company is **Acme, an e-commerce platform** — the corpus has service
-code (catalog, cart, orders, inventory, checkout, payments), architecture &
-onboarding docs, Slack channels, tickets, and a sales report (~57 chunks).
+The sample company is **Acme Shop**, an e-commerce backend — the corpus has docs
+(payments, authentication, setup, README), service code (`payment_providers.py`,
+`auth.py`), a Jira export and Slack history (~31 chunks).
 
 Get a feel for retrieval first (no code yet):
 
 ```bash
-python explore.py stats                          # what's in the store
-python explore.py query "how does checkout work?"      # semantic search, with scores
-python explore.py query "what were our Q2 sales?"      # finds the sales report
+python explore.py stats                                  # what's in the store
+python explore.py query "what payment providers do we use?"   # semantic search, with scores
+python explore.py query "how is authentication set up?"       # finds authentication.md
 python explore.py compare "log in" "authenticate a user"
-python explore.py keyword "getUserToken"         # keyword vs semantic → why hybrid
+python explore.py keyword "RazorpayProvider"             # keyword vs semantic → why hybrid
 ```
 
 **Files you edit:** `src/ingest.py`, `src/embeddings.py`, `src/retrieve.py`,
@@ -187,17 +187,17 @@ honestly says "I don't know."
 ### R2 (stretch 🔵) — Hybrid search · ⏱️ ~10 min
 **File:** `src/retrieve.py` → `hybrid_search()`
 **Goal:** blend BM25 keyword matching with semantic similarity so exact symbols
-(like `getUserToken`) *and* paraphrases both rank well.
+(like `RazorpayProvider`) *and* paraphrases both rank well.
 
-**Definition of done:** `getUserToken` surfaces `code/auth.py` in the top-k
-(plain semantic often misses it — that's the motivation).
+**Definition of done:** `RazorpayProvider` surfaces `code/payment_providers.py` in
+the top-k (plain semantic often misses an exact class name — that's the motivation).
 
 **Hint:** build a `rank_bm25.BM25Okapi` over all chunk texts, then combine the two
 ranked lists with **reciprocal rank fusion**: `score += 1 / (60 + rank)` for each
 list, then sort by the fused score. No weight tuning needed.
 
 **See it live:** in the Retrieval Lab, flip the **Backend** between *My semantic_search
-(R1)* and *My hybrid_search (R2)* and query an exact code symbol (e.g. `getUserToken`)
+(R1)* and *My hybrid_search (R2)* and query an exact code symbol (e.g. `RazorpayProvider`)
 — your hybrid version should rank the code file higher.
 
 ---
