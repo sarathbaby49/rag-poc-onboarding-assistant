@@ -73,18 +73,43 @@ def chunk_text(text: str, size: int, overlap: int) -> list[str]:
     return chunks
 
 
+def chunk_text_smart(text: str, size: int, overlap: int) -> list[str]:
+    """EXERCISE I1 — chunk on a natural boundary instead of mid-word.
+
+    `chunk_text` above slices at exactly `size` characters, so it can cut a word
+    (or a line) in half — which blurs a chunk's meaning and its embedding. Improve
+    it: still aim for ~`size` chars, but END each chunk at the last whitespace
+    before the limit so words stay whole, and keep ~`overlap` chars of context
+    between neighbours.
+
+    Return a list of chunk strings (return [text] when text fits in one `size`).
+
+    Hint: for each window `text[start:start+size]`, if it doesn't reach the end,
+    find the last space with `window.rfind(" ")` (or `"\\n"`) and cut there; then
+    advance `start` to `end - overlap`.
+
+    To actually use it, point `build_index` at `chunk_text_smart` and re-ingest.
+
+    Self-check:  python -m checks.check_ingest
+    """
+    # TODO(I1): implement boundary-aware chunking.
+    raise NotImplementedError("Exercise I1: implement chunk_text_smart — see EXERCISES.md")
+
+
 # --- 3. EMBED + 4. STORE -----------------------------------------------------
 
-def build_index() -> None:
+def build_index(chunker=chunk_text) -> None:
     print(f"Loading documents from {config.DATA_DIR} ...")
     docs = load_documents(config.DATA_DIR)
 
     # Split every document into chunks, carrying its source forward.
+    # `chunker` defaults to the fixed-size splitter; the Retrieval Lab UI can pass
+    # chunk_text_smart (exercise I1) to see boundary-aware chunking in action.
     chunks: list[str] = []
     metadatas: list[dict] = []
     ids: list[str] = []
     for doc in docs:
-        for j, chunk in enumerate(chunk_text(doc["text"], config.CHUNK_SIZE, config.CHUNK_OVERLAP)):
+        for j, chunk in enumerate(chunker(doc["text"], config.CHUNK_SIZE, config.CHUNK_OVERLAP)):
             chunks.append(chunk)
             metadatas.append({"source": doc["source"]})
             ids.append(f"{doc['source']}::chunk{j}")

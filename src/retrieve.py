@@ -4,6 +4,7 @@ Given a question, find the most relevant chunks from the vector store.
 
   - R1 (core):    implement `semantic_search`  -> see EXERCISES.md
   - R2 (stretch): implement `hybrid_search`    -> see EXERCISES.md
+  - R3 (extra):   implement `confident_hits`   -> see EXERCISES.md
 
 The `_encoder()` and `_collection()` helpers below are done for you.
 Self-check your work:  python -m checks.check_retrieval
@@ -74,3 +75,21 @@ def hybrid_search(query: str, k: int = config.TOP_K) -> list[dict]:
     """
     # TODO(R2): replace this fallback with a real BM25 + semantic blend.
     return semantic_search(query, k)
+
+
+def confident_hits(query: str, k: int = config.TOP_K, min_score: float = 0.25) -> list[dict]:
+    """EXERCISE R3 (extra) — retrieve, then drop weak matches below `min_score`.
+
+    Semantic search always returns k results, even for an off-topic question — so
+    the assistant would "answer" from irrelevant context. Filtering by score lets
+    it honestly say "I don't know" when nothing is relevant enough.
+
+    Steps:
+      1. hits = semantic_search(query, k)          # needs R1 done
+      2. keep only hits whose "score" >= min_score
+      3. return the filtered list (it may be empty)
+
+    Self-check:  python -m checks.check_retrieval
+    """
+    # TODO(R3): filter semantic_search results by min_score.
+    raise NotImplementedError("Exercise R3: implement confident_hits — see EXERCISES.md")

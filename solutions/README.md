@@ -11,6 +11,7 @@ up.
 |----------|---------------|-------------------|
 | R1, R2 (retrieval) | `solutions/retrieve.py` | `src/retrieve.py` |
 | M1, M2 (memory)    | `solutions/memory.py`  | `src/memory.py` |
+| I1 (ingestion), E1 (embeddings), R3 (retrieval) | `solutions/extras.py` | `src/ingest.py`, `src/embeddings.py`, `src/retrieve.py` |
 
 To use a solution, copy the relevant function/method body into the matching
 `src/` file — don't import from here.

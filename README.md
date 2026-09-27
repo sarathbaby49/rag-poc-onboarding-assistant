@@ -18,10 +18,18 @@ session's presenter and participants fill in.
 python3 -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-python -m src.ingest          # builds the local vector index → "Indexed 12 chunks"
+python -m src.ingest          # builds the local vector index → "Indexed 57 chunks"
 ```
 
 Then head to **[EXERCISES.md](EXERCISES.md)** for the hands-on tasks.
+
+**Prefer a UI?** Launch the **Retrieval Lab** — a chat-style playground to query the
+vector DB, tune ingestion settings and re-ingest with a click, and see the store as
+a 2D map (no API key):
+
+```bash
+streamlit run retrieval_lab.py
+```
 
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
@@ -34,10 +42,12 @@ Then head to **[EXERCISES.md](EXERCISES.md)** for the hands-on tasks.
 
 | Status | Piece | File |
 |--------|-------|------|
-| ✅ Works | Ingestion: load → chunk → embed → store | `src/ingest.py` |
-| ✅ Works | The dials (chunk size, top-k, models) | `src/config.py` |
+| ✅ Works | Ingestion pipeline + the dials | `src/ingest.py`, `src/config.py` |
 | ✅ Works | Retrieval intuition explorer (no key) | `explore.py` |
-| 📝 **Exercise** | **Retrieval** — semantic + hybrid search | `src/retrieve.py` |
+| ✅ Works | **Retrieval Lab** — chat UI + ingestion controls + vector map | `retrieval_lab.py` |
+| 📝 **Exercise** | **Ingestion** — boundary-aware chunking (I1) | `src/ingest.py` |
+| 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
+| 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
 | 🔒 Other session | RAG generation (retrieve → grounded, cited answer) | `src/rag.py`, `app.py` |
 | 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `src/agent.py`, `graph.py`, `mcp_server.py`, `models.py`, `eval/` |
@@ -50,7 +60,9 @@ Then head to **[EXERCISES.md](EXERCISES.md)** for the hands-on tasks.
 ## Self-check your work
 
 ```bash
-python -m checks.check_retrieval     # R1 (required) + R2 (stretch)
+python -m checks.check_ingest        # I1 (boundary-aware chunking)
+python -m checks.check_embeddings    # E1 (cosine similarity)
+python -m checks.check_retrieval     # R1 (required) + R2, R3 (reported)
 python -m checks.check_memory        # M1 + M2
 ```
 
@@ -76,7 +88,8 @@ onboarding-assistant-rag/
 ├── EXERCISES.md              # the hands-on tasks + run-of-show
 ├── explore.py                # ✅ retrieval intuition tool (no key)
 ├── app.py                    # 🔒 Streamlit UI (works once src/rag.py is built)
-├── data/sample_company/      # fake team knowledge (docs, code, tickets, slack)
+├── data/sample_company/      # Acme e-commerce corpus: service code, docs,
+│                             #   Slack channels, tickets, sales report (~57 chunks)
 ├── checks/                   # self-check scripts (pass/fail)
 │   ├── check_retrieval.py
 │   └── check_memory.py
