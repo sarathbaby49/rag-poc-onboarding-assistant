@@ -1,0 +1,8 @@
+{"channel": "#payments", "user": "sam", "text": "Reminder: Stripe is our primary payment provider. INR orders go to Razorpay, everything else to Stripe. PayPal is wallet-only."}
+{"channel": "#payments", "user": "priya", "text": "Adding a new provider is easy — implement the PaymentProvider interface (charge / refund / verify_webhook) and add it to PROVIDERS in code/payment_providers.py."}
+{"channel": "#payments", "user": "sam", "text": "If Stripe webhooks return 400 in staging it's usually STRIPE_WEBHOOK_SECRET being stale after a key rotation — see PAY-19."}
+{"channel": "#auth", "user": "lena", "text": "Auth is JWT-based: a 15-minute access token plus a 7-day refresh token. Passwords are bcrypt-hashed. Google social login lives at /auth/google."}
+{"channel": "#auth", "user": "arjun", "text": "Heads up: logout doesn't revoke refresh tokens yet (AUTH-15). Access tokens still expire in 15 minutes, so the window is small."}
+{"channel": "#eng-help", "user": "mei", "text": "New-joiner setup tip: run `docker compose up -d postgres redis` and wait ~5s before `make migrate`, or you'll hit 'connection refused' (DEV-3)."}
+{"channel": "#eng-help", "user": "priya", "text": "Local setup is all in setup.md: venv + pip install -r requirements.txt, cp .env.example .env, make migrate, make run. API + docs at http://localhost:8000/docs."}
+{"channel": "#platform-requests", "user": "dev-bot", "text": "Deploy access is managed by the platform team. Open a request here — never share prod credentials or Stripe live keys in DMs."}

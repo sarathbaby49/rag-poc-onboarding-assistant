@@ -1,53 +1,62 @@
-# Local Development Setup — Acme Payments Service
+# Local Development Setup — Acme Shop
 
-Welcome! Follow these steps to get the `payments-service` running locally.
-Most people finish in about 30 minutes.
+Get the Acme Shop API running on your machine. Most people finish in ~15 minutes.
 
 ## Prerequisites
-
 - Python 3.11+
-- Docker Desktop (for the local PostgreSQL database)
-- Access to the internal package registry (ask your onboarding buddy)
+- Docker Desktop (PostgreSQL + Redis run in containers)
+- `make`
 
 ## Steps
-
 1. **Clone the repo**
    ```
-   git clone git@github.com:acme/payments-service.git
-   cd payments-service
+   git clone git@github.com:acme/shop.git
+   cd shop
    ```
-
 2. **Create a virtual environment and install dependencies**
    ```
    python -m venv .venv
    source .venv/bin/activate
    pip install -r requirements.txt
    ```
-
-3. **Copy the environment file**
+3. **Copy the environment file** and fill in the required vars (table below)
    ```
    cp .env.example .env
    ```
-   Fill in `DATABASE_URL` and `JWT_SECRET`. Defaults in `.env.example` work for local dev.
-
-4. **Start the database**
+4. **Start the datastores**
    ```
-   docker compose up -d postgres
+   docker compose up -d postgres redis
    ```
-
-5. **Run migrations and start the app**
+5. **Run migrations and seed data**
    ```
    make migrate
+   make seed
+   ```
+6. **Start the app**
+   ```
    make run
    ```
-   The API is now at http://localhost:8000. Open http://localhost:8000/docs for the API explorer.
+   The API is now at http://localhost:8000 — open http://localhost:8000/docs for
+   the interactive API explorer.
+7. **Verify it works**: `make test` (or `make smoke`) — you should see all tests pass.
 
-## Verifying it works
+## Environment variables
+| Variable | Purpose |
+| --- | --- |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `REDIS_URL` | Redis connection (cart + session cache) |
+| `JWT_SECRET` | signs auth tokens (see `authentication.md`) |
+| `STRIPE_API_KEY` | Stripe secret key (see `payments.md`) |
+| `PAYPAL_CLIENT_ID` / `PAYPAL_CLIENT_SECRET` | PayPal credentials |
+| `RAZORPAY_KEY_ID` / `RAZORPAY_KEY_SECRET` | Razorpay credentials |
+| `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` | Google social login |
 
-Run the smoke test: `make smoke`. You should see `OK: 12 passed`.
+Defaults in `.env.example` work for local dev except the payment-provider keys,
+which you can leave blank unless you're testing checkout.
 
 ## Getting help
-
-- Post in the **#eng-help** Slack channel — someone answers fast.
-- For **deployment access or production credentials**, ask the **platform team** (they own the deploy pipeline).
-- Your onboarding buddy is assigned on day one; they can pair with you on setup.
+- Post in **#eng-help** on Slack — someone answers fast.
+- If `make migrate` fails with "connection refused", the Postgres container isn't
+  up yet: run `docker compose up -d postgres redis`, wait ~5 seconds, retry.
+- Deployment / production access is handled by the **platform team** via
+  **#platform-requests**. New joiners ship to staging first.
