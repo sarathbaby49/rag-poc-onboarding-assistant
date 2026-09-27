@@ -118,18 +118,15 @@ def index_exists() -> bool:
         return False
 
 
-def reingest(chunk_size: int, overlap: int, model: str, smart: bool) -> None:
+def reingest(chunk_size: int, overlap: int, model: str, fixed: bool) -> None:
     config.CHUNK_SIZE = chunk_size
     config.CHUNK_OVERLAP = overlap
     config.EMBED_MODEL = model
-    chunker = ingest.chunk_text_smart if smart else ingest.chunk_text
+    # Default is boundary-aware; the checkbox lets you fall back to fixed-size to compare.
+    chunker = ingest.chunk_text if fixed else ingest.chunk_text_smart
     try:
         with st.spinner(f"Re-ingesting with {model} (size={chunk_size}, overlap={overlap})…"):
             ingest.build_index(chunker=chunker)
-    except NotImplementedError:
-        st.error("Boundary-aware chunking (exercise I1) isn't implemented yet — "
-                 "implement `chunk_text_smart` in `src/ingest.py`, or uncheck it.")
-        return
     except Exception as e:  # noqa: BLE001
         st.error(f"Re-ingest failed: {type(e).__name__}: {e}")
         return
@@ -140,7 +137,7 @@ def reingest(chunk_size: int, overlap: int, model: str, smart: bool) -> None:
             fn.cache_clear()
         except Exception:  # noqa: BLE001
             pass
-    ss.ingested_model, ss.chunk_size, ss.overlap, ss.smart_chunk = model, chunk_size, overlap, smart
+    ss.ingested_model, ss.chunk_size, ss.overlap, ss.fixed_chunk = model, chunk_size, overlap, fixed
     st.success(f"Re-ingested → {get_collection().count()} chunks.")
     st.rerun()
 
@@ -178,8 +175,8 @@ def search(query: str, k: int, model_name: str, backend: str):
     return hits, qv
 
 
-def exercise_status() -> tuple[bool, bool, bool]:
-    """Detect (statically, from source) whether I1 / R1 / R2 are implemented yet."""
+def exercise_status() -> tuple[bool, bool]:
+    """Detect (statically, from source) whether R1 / R2 are implemented yet."""
     def src(fn) -> str:
         try:
             return inspect.getsource(fn)
@@ -198,10 +195,9 @@ def exercise_status() -> tuple[bool, bool, bool]:
             for n in ast.walk(tree)
         )
 
-    i1 = "raise NotImplementedError" not in src(ingest.chunk_text_smart)
     r1 = "raise NotImplementedError" not in src(retrieve.semantic_search)
     r2 = uses_bm25(retrieve.hybrid_search)
-    return i1, r1, r2
+    return r1, r2
 
 
 def chip(label: str, done: bool) -> str:
@@ -330,11 +326,11 @@ ss = st.session_state
 ss.setdefault("ingested_model", config.EMBED_MODEL)
 ss.setdefault("chunk_size", config.CHUNK_SIZE)
 ss.setdefault("overlap", config.CHUNK_OVERLAP)
-ss.setdefault("smart_chunk", False)
+ss.setdefault("fixed_chunk", False)
 ss.setdefault("history", [])  # [{"query", "hits", "query_vec"}]
 
 # Live status of the exercise-backed controls (updates as participants implement them).
-I1_DONE, R1_DONE, R2_DONE = exercise_status()
+R1_DONE, R2_DONE = exercise_status()
 
 
 # --- sidebar: ingestion controls ---------------------------------------------
@@ -346,20 +342,20 @@ with st.sidebar:
     )
     chunk_size = st.slider("Chunk size (chars)", 100, 2000, int(ss.chunk_size), 50)
     overlap = st.slider("Chunk overlap (chars)", 0, 400, int(ss.overlap), 10)
-    smart = st.checkbox(
-        "⚙ Boundary-aware chunking (exercise I1)", value=ss.smart_chunk,
-        help="Uses your chunk_text_smart() from src/ingest.py instead of fixed-size slicing.",
+    fixed = st.checkbox(
+        "Use naive fixed-size chunking (to compare)", value=ss.fixed_chunk,
+        help="Default is boundary-aware chunking (keeps words whole). Tick this to fall "
+             "back to the naive fixed-size splitter and compare how retrieval changes.",
     )
-    st.markdown('<div class="xrow">' + chip("I1 chunk_text_smart", I1_DONE) + "</div>",
-                unsafe_allow_html=True)
+    st.caption("Chunker: **fixed-size (naive)**" if fixed else "Chunker: **boundary-aware (default)**")
 
-    pending = (model, chunk_size, overlap, smart) != (
-        ss.ingested_model, ss.chunk_size, ss.overlap, ss.smart_chunk)
+    pending = (model, chunk_size, overlap, fixed) != (
+        ss.ingested_model, ss.chunk_size, ss.overlap, ss.fixed_chunk)
     if pending:
         st.caption("⚠️ Settings changed — re-ingest to apply them.")
 
     if st.button("🔁 Re-ingest data", type="primary", width="stretch"):
-        reingest(chunk_size, overlap, model, smart)
+        reingest(chunk_size, overlap, model, fixed)
 
     st.divider()
     st.subheader("🔎 Retrieval")
@@ -375,7 +371,7 @@ with st.sidebar:
         st.write(f"**Model:** `{ss.ingested_model}`")
         st.write(f"**Vector dim:** {dim}")
         st.write(f"**Chunk size / overlap:** {ss.chunk_size} / {ss.overlap}")
-        st.write(f"**Chunker:** {'boundary-aware (I1)' if ss.smart_chunk else 'fixed-size'}")
+        st.write(f"**Chunker:** {'fixed-size (naive)' if ss.fixed_chunk else 'boundary-aware'}")
     else:
         st.warning("No index yet — click **Re-ingest data**.")
 

@@ -1,37 +1,17 @@
-"""REFERENCE SOLUTIONS for the extra exercises: I1, E1, R3.
+"""REFERENCE SOLUTIONS for the extra exercises: E1, R3.
 
 Try each first! If you're stuck or out of time, copy the relevant function body
 into the file named below.
 
-  - I1  -> src/ingest.py   :: chunk_text_smart
   - E1  -> src/embeddings.py :: cosine_similarity
   - R3  -> src/retrieve.py :: confident_hits
+
+(Chunking ships implemented in src/ingest.py — see chunk_text_smart there.)
 """
 
 from __future__ import annotations
 
 import math
-
-
-# --- I1: boundary-aware chunking (src/ingest.py) -----------------------------
-def chunk_text_smart(text: str, size: int, overlap: int) -> list[str]:
-    if len(text) <= size:
-        return [text]
-    chunks, start = [], 0
-    while start < len(text):
-        end = start + size
-        window = text[start:end]
-        if end < len(text):
-            # back up to the last whitespace so we don't cut a word/line
-            cut = max(window.rfind(" "), window.rfind("\n"))
-            if cut > 0:
-                end = start + cut
-                window = text[start:end]
-        chunks.append(window.strip())
-        if end >= len(text):
-            break
-        start = max(end - overlap, start + 1)
-    return [c for c in chunks if c]
 
 
 # --- E1: cosine similarity (src/embeddings.py) -------------------------------

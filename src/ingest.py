@@ -64,6 +64,9 @@ def _record_to_text(obj) -> str:
 # overlap so an idea that straddles a boundary still lands whole in one chunk.
 
 def chunk_text(text: str, size: int, overlap: int) -> list[str]:
+    """Naive fixed-size splitter — slices at exactly `size` chars, so it can cut a
+    word or line in half. Kept as a baseline to compare against chunk_text_smart
+    (flip to it in the Retrieval Lab to see the difference)."""
     if len(text) <= size:
         return [text]
     chunks, start = [], 0
@@ -74,37 +77,41 @@ def chunk_text(text: str, size: int, overlap: int) -> list[str]:
 
 
 def chunk_text_smart(text: str, size: int, overlap: int) -> list[str]:
-    """EXERCISE I1 — chunk on a natural boundary instead of mid-word.
+    """Boundary-aware splitter — the DEFAULT chunker used by build_index.
 
-    `chunk_text` above slices at exactly `size` characters, so it can cut a word
-    (or a line) in half — which blurs a chunk's meaning and its embedding. Improve
-    it: still aim for ~`size` chars, but END each chunk at the last whitespace
-    before the limit so words stay whole, and keep ~`overlap` chars of context
-    between neighbours.
-
-    Return a list of chunk strings (return [text] when text fits in one `size`).
-
-    Hint: for each window `text[start:start+size]`, if it doesn't reach the end,
-    find the last space with `window.rfind(" ")` (or `"\\n"`) and cut there; then
-    advance `start` to `end - overlap`.
-
-    To actually use it, point `build_index` at `chunk_text_smart` and re-ingest.
-
-    Self-check:  python -m checks.check_ingest
+    Aims for ~`size` chars but ends each chunk at the last whitespace/newline
+    before the limit, so words and lines stay whole (a cleaner chunk = a cleaner
+    embedding). Keeps ~`overlap` chars of context between neighbours.
     """
-    # TODO(I1): implement boundary-aware chunking.
-    raise NotImplementedError("Exercise I1: implement chunk_text_smart — see EXERCISES.md")
+    if len(text) <= size:
+        return [text]
+    chunks, start = [], 0
+    while start < len(text):
+        end = start + size
+        window = text[start:end]
+        if end < len(text):
+            cut = max(window.rfind(" "), window.rfind("\n"))
+            if cut > 0:
+                end = start + cut
+                window = text[start:end]
+        piece = window.strip()
+        if piece:
+            chunks.append(piece)
+        if end >= len(text):
+            break
+        start = max(end - overlap, start + 1)
+    return chunks
 
 
 # --- 3. EMBED + 4. STORE -----------------------------------------------------
 
-def build_index(chunker=chunk_text) -> None:
+def build_index(chunker=chunk_text_smart) -> None:
     print(f"Loading documents from {config.DATA_DIR} ...")
     docs = load_documents(config.DATA_DIR)
 
     # Split every document into chunks, carrying its source forward.
-    # `chunker` defaults to the fixed-size splitter; the Retrieval Lab UI can pass
-    # chunk_text_smart (exercise I1) to see boundary-aware chunking in action.
+    # `chunker` defaults to the boundary-aware splitter; the Retrieval Lab UI can
+    # pass the naive fixed-size `chunk_text` to compare the two.
     chunks: list[str] = []
     metadatas: list[dict] = []
     ids: list[str] = []

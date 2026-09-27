@@ -1,7 +1,7 @@
-"""Self-check for the Ingestion exercise (I1 — boundary-aware chunking).
+"""Regression check for the default chunker (boundary-aware `chunk_text_smart`).
 
-No API key needed; this tests the pure chunking function (no re-ingest required
-to pass). Run from the repo root:  python -m checks.check_ingest
+Chunking ships implemented, so this just guards that the default chunker keeps
+words whole. No API key needed. Run from the repo root:  python -m checks.check_ingest
 """
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ def _check(label: str, cond: bool) -> bool:
 def main() -> None:
     results: list[bool] = []
 
-    print("-- I1: chunk_text_smart --")
+    print("-- chunk_text_smart (boundary-aware, default) --")
     # 300 whole words; fixed-size slicing would cut words, boundary-aware must not.
     text = " ".join(["word"] * 300)
     try:
@@ -30,9 +30,6 @@ def main() -> None:
         results.append(_check("each chunk respects ~size (<= size)", all(len(c) <= 100 for c in chunks)))
         short = chunk_text_smart("just a short line", size=100, overlap=20)
         results.append(_check("text shorter than size -> single chunk", short == ["just a short line"]))
-    except NotImplementedError:
-        results.append(_check("chunk_text_smart implemented", False))
-        print("   ↳ still a TODO — see EXERCISES.md (I1)")
     except Exception as e:  # noqa: BLE001
         results.append(_check(f"chunk_text_smart runs without error ({type(e).__name__}: {e})", False))
 

@@ -18,7 +18,7 @@ session's presenter and participants fill in.
 python3 -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-python -m src.ingest          # builds the local vector index → "Indexed 31 chunks"
+python -m src.ingest          # builds the local vector index → "Indexed 30 chunks"
 ```
 
 Then head to **[EXERCISES.md](EXERCISES.md)** for the hands-on tasks.
@@ -42,10 +42,10 @@ streamlit run retrieval_lab.py
 
 | Status | Piece | File |
 |--------|-------|------|
-| ✅ Works | Ingestion pipeline + the dials | `src/ingest.py`, `src/config.py` |
+| ✅ Works | Ingestion pipeline (boundary-aware chunking) + the dials | `src/ingest.py`, `src/config.py` |
 | ✅ Works | Retrieval intuition explorer (no key) | `explore.py` |
 | ✅ Works | **Retrieval Lab** — chat UI + ingestion controls + vector map | `retrieval_lab.py` |
-| 📝 **Exercise** | **Ingestion** — boundary-aware chunking (I1), bring your own data (I2) | `src/ingest.py`, `data/` |
+| 📝 **Exercise** | **Ingestion** — compare chunkers (I1, optional), bring your own data (I2) | `src/ingest.py`, `data/` |
 | 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
@@ -89,7 +89,7 @@ onboarding-assistant-rag/
 ├── explore.py                # ✅ retrieval intuition tool (no key)
 ├── app.py                    # 🔒 Streamlit UI (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
-│                             #   code, a Jira export & Slack history (~31 chunks)
+│                             #   code, a Jira export & Slack history (~30 chunks)
 ├── checks/                   # self-check scripts (pass/fail)
 │   ├── check_retrieval.py
 │   └── check_memory.py

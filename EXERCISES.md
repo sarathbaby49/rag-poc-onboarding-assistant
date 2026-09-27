@@ -20,12 +20,12 @@ on it); the rest add depth — pick what fits your time. Difficulty: 🟢 easy �
 python3 -m venv .venv && source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
-python -m src.ingest          # builds the vector index → "Indexed 31 chunks"
+python -m src.ingest          # builds the vector index → "Indexed 30 chunks"
 ```
 
 The sample company is **Acme Shop**, an e-commerce backend — the corpus has docs
 (payments, authentication, setup, README), service code (`payment_providers.py`,
-`auth.py`), a Jira export and Slack history (~31 chunks).
+`auth.py`), a Jira export and Slack history (~30 chunks).
 
 Get a feel for retrieval first (no code yet):
 
@@ -37,15 +37,15 @@ python explore.py compare "log in" "authenticate a user"
 python explore.py keyword "RazorpayProvider"             # keyword vs semantic → why hybrid
 ```
 
-**Files you edit:** `src/ingest.py`, `src/embeddings.py`, `src/retrieve.py`,
-`src/memory.py`. **Self-check any exercise** with its command below (instant
+**Files you edit:** `src/embeddings.py`, `src/retrieve.py`, `src/memory.py` (and
+`data/` for I2). **Self-check any exercise** with its command below (instant
 ✅/❌). Stuck or out of time? Answers are in **`solutions/`** — try first, then peek.
 
 ```bash
-python -m checks.check_ingest        # I1
 python -m checks.check_embeddings    # E1
 python -m checks.check_retrieval     # R1 (+ R2, R3 reported)
 python -m checks.check_memory        # M1, M2
+python -m checks.check_ingest        # regression check for the default chunker
 ```
 
 ---
@@ -56,7 +56,7 @@ python -m checks.check_memory        # M1, M2
 |------|------|
 | 0:00–0:10 | Concept: embeddings, cosine, ingest → store → retrieve. Live-drive `explore.py`. |
 | 0:10–0:22 | **R1** — `semantic_search` (everyone) · self-check |
-| 0:22–0:38 | Pick your depth: **E1** cosine · **I1** smarter chunking · **I2** bring your own data · **R3** confidence · **E2** swap model |
+| 0:22–0:38 | Pick your depth: **E1** cosine · **I1** compare chunkers · **I2** bring your own data · **R3** confidence · **E2** swap model |
 | 0:38–0:48 | Memory: **M1** session window · **M2** profile persistence |
 | 0:48–0:50 | Recap: how it all feeds the RAG-generation layer next. |
 
@@ -66,22 +66,23 @@ Fast finishers go for **R2** (hybrid search). Nobody needs to finish everything.
 
 # Part A — Ingestion
 
-### I1 (medium 🟡) — Boundary-aware chunking · ⏱️ ~12 min
-**File:** `src/ingest.py` → `chunk_text_smart()`
-**Goal:** split text at natural boundaries (spaces/newlines) instead of mid-word,
-so each chunk stays coherent. Chunking is the single biggest retrieval-quality
-lever — this is where you feel it.
+### I1 (explore 🔵) — Compare chunking strategies · ⏱️ ~8 min
+Chunking is the single biggest retrieval-quality lever, so the pipeline **ships
+with boundary-aware chunking** (`chunk_text_smart` in `src/ingest.py`) as the
+default — it ends each chunk at a whitespace/newline so words stay whole. The
+naive fixed-size `chunk_text` is kept as a baseline to compare against.
 
-**Definition of done** (`python -m checks.check_ingest`):
-- returns multiple chunks, each `<= size`
-- never cuts a word in half
-- text shorter than `size` → a single chunk
+**Explore (no required code):**
+1. In the **Retrieval Lab**, tick **"Use naive fixed-size chunking (to compare)"**
+   in the sidebar and click **🔁 Re-ingest data**.
+2. Query something and watch the chunks (hover `chars` on the map) and the scores
+   shift; fixed-size can cut words mid-token and split ideas.
+3. Untick it and re-ingest to return to the default boundary-aware chunker.
 
-**Hint:** for each window `text[start:start+size]`, if it isn't the end, back up
-to the last `" "` (or `"\n"`) with `rfind`, cut there, then advance
-`start = end - overlap`. To use it for real: point `build_index` at
-`chunk_text_smart` and re-run `python -m src.ingest`, then `explore.py query` to
-compare.
+**Stretch (code):** open `src/ingest.py` and write your own smarter splitter —
+sentence-aware, or Markdown-heading / code-function aware — and make `build_index`
+use it. (`python -m checks.check_ingest` guards that the default chunker keeps
+words whole.)
 
 ### I2 (explore 🔵) — Bring your own data · ⏱️ ~10 min
 **Files:** add a new file under `data/sample_company/` (any `.md`, `.txt`, `.py`,
