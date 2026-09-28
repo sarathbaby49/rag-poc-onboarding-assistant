@@ -49,7 +49,7 @@ streamlit run retrieval_lab.py
 | 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
-| 🔒 Other session | RAG generation (retrieve → grounded, cited answer) | `src/rag.py`, `app.py` |
+| 📝 **Exercise** | **Generation** — grounded, cited answer (G1), abstain (G2), citations (G3), memory (G4) | `src/rag.py`, `app.py` |
 | 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `src/agent.py`, `graph.py`, `mcp_server.py`, `models.py`, `eval/` |
 
 - **✅ Works** — runs today; don't edit, build against it.
@@ -64,6 +64,7 @@ python -m checks.check_ingest        # I1 (boundary-aware chunking)
 python -m checks.check_embeddings    # E1 (cosine similarity)
 python -m checks.check_retrieval     # R1 (required) + R2, R3 (reported)
 python -m checks.check_memory        # M1 + M2
+python -m checks.check_rag           # G1 + G2, G3, G4 (live checks need the gateway)
 ```
 
 Reference answers live in **`solutions/`** — try the exercise first, then peek if
@@ -101,7 +102,7 @@ onboarding-assistant-rag/
     ├── ingest.py             # ✅ builds the index
     ├── retrieve.py           # 📝 EXERCISE (R1, R2)
     ├── memory.py             # 📝 EXERCISE (M1, M2)
-    ├── rag.py                # 🔒 RAG-generation session
+    ├── rag.py                # 📝 EXERCISE (G1–G4) — the "G" in RAG
     ├── agent.py / graph.py / mcp_server.py / models.py   # 🔒 later layers
     └── eval/                 # 🔒 evaluation layer
 ```
