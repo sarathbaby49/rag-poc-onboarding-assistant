@@ -220,3 +220,6 @@ __marimo__/
 # RAG session — generated artifacts (never commit)
 .chroma/
 .profiles/
+
+# Lab search history (runtime data)
+.search_history.json

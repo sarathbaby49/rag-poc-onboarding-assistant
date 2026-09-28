@@ -18,8 +18,10 @@ fact came from. That's what makes answers trustworthy.
 from __future__ import annotations
 
 import sys
+from typing import Callable
 
 from src import config
+from src.llm import complete
 from src.retrieve import semantic_search
 
 # The system prompt is the assistant's "constitution". Note the two rules that
@@ -42,24 +44,56 @@ def format_context(hits: list[dict]) -> str:
     return "\n\n".join(lines)
 
 
-def answer(question: str, k: int = config.TOP_K) -> dict:
-    """Return {"answer", "sources"} for a question, grounded in retrieved docs.
+def answer(
+    question: str,
+    k: int = config.TOP_K,
+    *,
+    history: list[dict] | None = None,
+    memories: list[str] | None = None,
+    retriever: Callable[[str, int], list[dict]] = semantic_search,
+    generate: Callable[..., str] = complete,
+) -> dict:
+    """Return {"answer", "sources", "messages"} for a question, grounded in docs.
 
-    RAG-FLOW EXERCISE (owned by the generation presenter):
-      1. hits = semantic_search(question, k)          # needs Retrieval (R1) done
-      2. context = format_context(hits)
-      3. Call the model via src.llm.complete (the LiteLLM gateway) with the
-         SYSTEM_PROMPT + the context, instructing it to answer only from context
-         and cite [n]. No direct provider key needed — the gateway handles auth.
-      4. Return {"answer": <text>, "sources": hits}.
+    `messages` is the full OpenAI-style payload (the context window) that was sent
+    to the model — system prompt, recalled memories, session history and the
+    context-stuffed user turn — so callers can inspect exactly what the LLM saw.
 
-    Reference implementation: solutions/rag.py. Verify the gateway first with
-    `python -m checks.check_llm`.
+    The RAG flow: retrieve relevant chunks -> build a grounded prompt -> ask the
+    model through the LiteLLM gateway -> return a cited answer + its sources.
+
+    Memory wiring (optional, so single-shot callers like app.py stay simple):
+      - `history`  : prior conversation turns ({"role", "content"}) — session
+                     memory — so follow-ups ("what about the tests?") have context.
+      - `memories` : relevant long-term facts recalled by meaning (MemoryStore) or
+                     a joinee profile, injected as extra system context.
+      - `retriever`: which retrieval function to use (semantic_search by default;
+                     pass hybrid_search to blend in keyword matching).
+      - `generate` : which generator to call (the LiteLLM gateway `complete` by
+                     default).
     """
-    raise NotImplementedError(
-        "RAG generation layer — owned by the RAG-flow presenter. "
-        "Depends on retrieval (Exercise R1). See src/rag.py docstring."
-    )
+    hits = retriever(question, k)
+    context = format_context(hits)
+
+    messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
+    if memories:
+        remembered = "\n".join(f"- {m}" for m in memories)
+        messages.append({
+            "role": "system",
+            "content": "What you already know about this person / earlier in the "
+                       f"conversation:\n{remembered}",
+        })
+    if history:
+        messages.extend(history)
+    messages.append({
+        "role": "user",
+        "content": f"Context sources:\n\n{context}\n\nQuestion: {question}",
+    })
+
+    text = generate(messages, max_tokens=config.MAX_TOKENS)
+    # `messages` is the exact context window we hand the model — return it so
+    # callers (e.g. the Lab UI) can show what was actually sent.
+    return {"answer": text, "sources": hits, "messages": messages}
 
 
 def _cli() -> None:

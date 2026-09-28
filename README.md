@@ -48,7 +48,7 @@ streamlit run retrieval_lab.py
 | 📝 **Exercise** | **Ingestion** — compare chunkers (I1, optional), bring your own data (I2) | `src/ingest.py`, `data/` |
 | 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
-| 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
+| 📝 **Exercise** | **Memory** — session window (M1), semantic recall (M4); `JoineeProfile` provided | `src/memory.py` |
 | 🔒 Other session | RAG generation (retrieve → grounded, cited answer) | `src/rag.py`, `app.py` |
 | 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `src/agent.py`, `graph.py`, `mcp_server.py`, `models.py`, `eval/` |
 
@@ -63,7 +63,7 @@ streamlit run retrieval_lab.py
 python -m checks.check_ingest        # I1 (boundary-aware chunking)
 python -m checks.check_embeddings    # E1 (cosine similarity)
 python -m checks.check_retrieval     # R1 (required) + R2, R3 (reported)
-python -m checks.check_memory        # M1 + M2
+python -m checks.check_memory        # M1 + M4
 ```
 
 Reference answers live in **`solutions/`** — try the exercise first, then peek if
@@ -100,7 +100,7 @@ onboarding-assistant-rag/
     ├── config.py             # ✅ all the dials
     ├── ingest.py             # ✅ builds the index
     ├── retrieve.py           # 📝 EXERCISE (R1, R2)
-    ├── memory.py             # 📝 EXERCISE (M1, M2)
+    ├── memory.py             # 📝 EXERCISE (M1, M4) + JoineeProfile provided
     ├── rag.py                # 🔒 RAG-generation session
     ├── agent.py / graph.py / mcp_server.py / models.py   # 🔒 later layers
     └── eval/                 # 🔒 evaluation layer
