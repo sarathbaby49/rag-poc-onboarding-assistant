@@ -25,6 +25,7 @@ Self-check your work:  python -m checks.check_rag
 
 from __future__ import annotations
 
+import re
 import sys
 
 from src import config
