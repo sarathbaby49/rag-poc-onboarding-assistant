@@ -1,13 +1,12 @@
-"""Layer 3 — Retrieval  (YOUR EXERCISES: R1 core, R2 stretch).
+"""Layer 3 — Retrieval.
 
 Given a question, find the most relevant chunks from the vector store.
 
-  - R1 (core):    implement `semantic_search`  -> see EXERCISES.md
-  - R2 (stretch): implement `hybrid_search`    -> see EXERCISES.md
-  - R3 (extra):   implement `confident_hits`   -> see EXERCISES.md
+  - semantic_search : embed the query, return the k nearest chunks (cosine)
+  - hybrid_search   : blend BM25 keyword ranking with semantic (reciprocal rank fusion)
+  - confident_hits  : semantic_search + a min-score threshold ("I don't know" support)
 
-The `_encoder()` and `_collection()` helpers below are done for you.
-Self-check your work:  python -m checks.check_retrieval
+Self-check:  python -m checks.check_retrieval
 """
 
 from __future__ import annotations
@@ -15,6 +14,7 @@ from __future__ import annotations
 from functools import lru_cache
 
 import chromadb
+from rank_bm25 import BM25Okapi
 from sentence_transformers import SentenceTransformer
 
 from src import config
@@ -33,60 +33,64 @@ def _collection():
 
 
 def semantic_search(query: str, k: int = config.TOP_K) -> list[dict]:
-    """EXERCISE R1 — semantic (vector) search.
+    """Embed the query and return the k nearest chunks by cosine similarity.
 
-    Return a list of {"text", "source", "score"} dicts, best first.
-
-    Steps:
-      1. Embed the query into a vector:
-             query_vec = _encoder().encode([query], normalize_embeddings=True).tolist()
-      2. Ask the vector store for the k nearest chunks:
-             res = _collection().query(query_embeddings=query_vec, n_results=k)
-      3. Build one dict per hit by zipping these three parallel lists:
-             res["documents"][0], res["metadatas"][0], res["distances"][0]
-         The store returns cosine *distance*; turn it into a similarity with
-             score = 1 - dist
-         and read the source from meta["source"].
-
-    Self-check:  python -m checks.check_retrieval
+    Returns a list of {"text", "source", "score"} dicts, best first, where
+    score = 1 - cosine_distance (so it reads 0..1, higher = closer).
     """
-    # TODO(R1): delete the line below and implement the three steps above.
-    raise NotImplementedError("Exercise R1: implement semantic_search — see EXERCISES.md")
+    query_vec = _encoder().encode([query], normalize_embeddings=True).tolist()
+    res = _collection().query(query_embeddings=query_vec, n_results=k)
+    return [
+        {"text": text, "source": meta["source"], "score": 1 - dist}
+        for text, meta, dist in zip(
+            res["documents"][0], res["metadatas"][0], res["distances"][0]
+        )
+    ]
+
+
+@lru_cache(maxsize=1)
+def _bm25_index():
+    """BM25 index over every stored chunk (built once)."""
+    data = _collection().get(include=["documents", "metadatas"])
+    docs, metas = data["documents"], data["metadatas"]
+    tokenized = [d.lower().split() for d in docs]
+    return BM25Okapi(tokenized), docs, metas
 
 
 def hybrid_search(query: str, k: int = config.TOP_K) -> list[dict]:
-    """EXERCISE R2 (stretch) — blend BM25 keyword search with semantic search.
+    """Blend BM25 keyword search with semantic search via reciprocal rank fusion.
 
-    Why: vector search is great at meaning ("how do I log in?") but weak at exact
-    symbols ("getUserToken"). BM25 (keyword) is the opposite. Blending them —
-    'hybrid search' — catches both.
-
-    Your mission:
-      1. Build a BM25 index over all chunks (rank_bm25.BM25Okapi over
-         _collection().get(include=["documents", "metadatas"])).
-      2. Score chunks by BM25 for the query's keywords.
-      3. Combine with the semantic ranking from `semantic_search`. The simplest
-         robust blend is reciprocal rank fusion: score = sum(1 / (C + rank)) over
-         both ranked lists (C≈60), then sort by the fused score.
-      4. Return the top-k.
+    Semantic search is strong on meaning but weak on exact symbols; BM25 is the
+    reverse. RRF combines the two ranked lists without weight tuning.
     """
-    # TODO(R2): replace this fallback with a real BM25 + semantic blend.
-    raise NotImplementedError("Exercise R2: implement hybrid_search — see EXERCISES.md")
+    pool = max(k, 10)
+
+    # 1. semantic ranking
+    sem = semantic_search(query, k=pool)
+
+    # 2. keyword (BM25) ranking
+    bm25, docs, metas = _bm25_index()
+    scores = bm25.get_scores(query.lower().split())
+    order = sorted(range(len(docs)), key=lambda i: -scores[i])[:pool]
+    bm = [{"text": docs[i], "source": metas[i]["source"], "score": float(scores[i])} for i in order]
+
+    # 3. reciprocal rank fusion: score = sum(1 / (C + rank)) across both lists
+    C = 60
+    fused: dict[str, dict] = {}
+    for ranked in (sem, bm):
+        for rank, hit in enumerate(ranked):
+            key = hit["source"] + hit["text"][:40]
+            slot = fused.setdefault(key, {"hit": hit, "score": 0.0})
+            slot["score"] += 1.0 / (C + rank + 1)
+
+    best = sorted(fused.values(), key=lambda x: -x["score"])
+    return [x["hit"] for x in best[:k]]
 
 
 def confident_hits(query: str, k: int = config.TOP_K, min_score: float = 0.25) -> list[dict]:
-    """EXERCISE R3 (extra) — retrieve, then drop weak matches below `min_score`.
+    """Retrieve, then drop weak matches below `min_score`.
 
-    Semantic search always returns k results, even for an off-topic question — so
-    the assistant would "answer" from irrelevant context. Filtering by score lets
-    it honestly say "I don't know" when nothing is relevant enough.
-
-    Steps:
-      1. hits = semantic_search(query, k)          # needs R1 done
-      2. keep only hits whose "score" >= min_score
-      3. return the filtered list (it may be empty)
-
-    Self-check:  python -m checks.check_retrieval
+    Lets the assistant honestly return nothing (→ "I don't know") when no chunk
+    is relevant enough, instead of answering from irrelevant context.
     """
-    # TODO(R3): filter semantic_search results by min_score.
-    raise NotImplementedError("Exercise R3: implement confident_hits — see EXERCISES.md")
+    return [h for h in semantic_search(query, k) if h["score"] >= min_score]
