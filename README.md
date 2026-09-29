@@ -31,6 +31,15 @@ a 2D map (no API key):
 streamlit run retrieval_lab.py
 ```
 
+Working the **generation** exercises (G1–G4)? The **RAG Exercise Lab** is the
+matching UI — pick which function to test in the sidebar and chat against it.
+Because it goes through `src/rag_helper.py`, an exercise you haven't finished yet
+shows a friendly "implement this next" message instead of crashing the page:
+
+```bash
+streamlit run rag_app.py
+```
+
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
 > gateway** — no direct Claude/OpenAI key, just the proxy URL + key in `.env`
@@ -45,6 +54,7 @@ streamlit run retrieval_lab.py
 | ✅ Works | Ingestion pipeline (boundary-aware chunking) + the dials | `src/ingest.py`, `src/config.py` |
 | ✅ Works | Retrieval intuition explorer (no key) | `explore.py` |
 | ✅ Works | **Retrieval Lab** — chat UI + ingestion controls + vector map | `retrieval_lab.py` |
+| ✅ Works | **RAG Exercise Lab** — chat UI for G1–G4; unfinished exercises show a TODO instead of crashing | `rag_app.py`, `src/rag_helper.py` |
 | 📝 **Exercise** | **Ingestion** — compare chunkers (I1, optional), bring your own data (I2) | `src/ingest.py`, `data/` |
 | 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
@@ -88,7 +98,9 @@ onboarding-assistant-rag/
 ├── README.md                 # you are here
 ├── EXERCISES.md              # the hands-on tasks + run-of-show
 ├── explore.py                # ✅ retrieval intuition tool (no key)
-├── app.py                    # 🔒 Streamlit UI (works once src/rag.py is built)
+├── retrieval_lab.py          # ✅ Streamlit lab for the R exercises
+├── rag_app.py                # ✅ Streamlit lab for the G exercises (crash-safe)
+├── app.py                    # 🔒 Streamlit end-user demo (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
 ├── checks/                   # self-check scripts (pass/fail)
@@ -103,6 +115,7 @@ onboarding-assistant-rag/
     ├── retrieve.py           # 📝 EXERCISE (R1, R2)
     ├── memory.py             # 📝 EXERCISE (M1, M2)
     ├── rag.py                # 📝 EXERCISE (G1–G4) — the "G" in RAG
+    ├── rag_helper.py         # ✅ crash-safe wrappers used by rag_app.py
     ├── agent.py / graph.py / mcp_server.py / models.py   # 🔒 later layers
     └── eval/                 # 🔒 evaluation layer
 ```

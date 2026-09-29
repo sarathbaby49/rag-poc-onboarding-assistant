@@ -278,8 +278,16 @@ Difficulty: 🟢 easy · 🟡 medium · 🔵 explore.
   `[1]`, `[2]`) — the scaffolding, just like `_encoder()`/`_collection()` were in
   the retrieval exercises.
 
-**Watch it live:** `streamlit run app.py` — the end-user chat demo runs on your
-`answer()` and shows each answer with a **Sources** panel.
+**Watch it live — two UIs:**
+- `streamlit run rag_app.py` — the **RAG Exercise Lab**. A sidebar selector picks
+  which function to test (**G1** `answer`, **G2** `answer_or_abstain`, **G4**
+  `answer_conversational`), so you can work the exercises in any order. Because it
+  goes through `src/rag_helper.py`, an exercise (or a dependency like R1/R3/M1)
+  you haven't finished yet shows a friendly "implement this next" message instead
+  of crashing — the page doubles as a live progress board.
+- `streamlit run app.py` — the polished **end-user chat demo**. It calls
+  `answer()` directly (no safety net), so it needs G1 done, and is what you'd show
+  off once the layer works.
 
 ---
 
@@ -288,7 +296,7 @@ Difficulty: 🟢 easy · 🟡 medium · 🔵 explore.
 | Time | What |
 |------|------|
 | 0:00–0:10 | Concept: retrieval → grounded prompt → cited answer. Why "answer only from context" is the whole game. Demo `app.py` on the reference build. |
-| 0:10–0:24 | **G1** — `answer` (everyone) · self-check · demo in `app.py` |
+| 0:10–0:24 | **G1** — `answer` (everyone) · self-check · watch it live in `rag_app.py` |
 | 0:24–0:36 | Pick your depth: **G2** abstention (the safety property) · **G3** trustworthy citations |
 | 0:36–0:44 | **G4** conversational memory · or **G5** prompt-craft the constitution |
 | 0:44–0:45 | Recap: how ingestion + embeddings + retrieval + memory all fed this one answer. |
@@ -363,7 +371,7 @@ the token budget bounded); after generating, `memory.add("user", q)` and
 ### G5 (explore 🔵) — Prompt-craft the "constitution" · ⏱️ ~8 min
 **File:** `src/rag.py` → `SYSTEM_PROMPT` *(no self-check — you're the judge)*
 The `SYSTEM_PROMPT` is the single line that makes RAG **safe**. Experiment and
-re-run a few questions in `app.py` after each change:
+re-run a few questions in `rag_app.py` (or `app.py`) after each change:
 - **Remove** *"Answer ONLY using the numbered context sources"* — watch it drift
   back to its own memory and answer things the docs never said.
 - **Add** *"Quote the exact line you're citing."* — do citations get sharper?

@@ -18,8 +18,8 @@ abstain path (off-topic question) short-circuits WITHOUT a model call.
 import streamlit as st
 from dotenv import load_dotenv
 
-from src.memory import SessionMemory
 from src.rag_helper import (
+    SessionMemory,  # window works even before M1 is done
     safe_answer,
     safe_answer_conversational,
     safe_answer_or_abstain,
