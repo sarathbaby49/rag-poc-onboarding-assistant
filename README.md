@@ -50,7 +50,8 @@ streamlit run retrieval_lab.py
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
 | 🔒 Other session | RAG generation (retrieve → grounded, cited answer) | `src/rag.py`, `app.py` |
-| 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `src/agent.py`, `graph.py`, `mcp_server.py`, `models.py`, `eval/` |
+| 🔒 Other session | **Agents & Orchestration** (LangChain, LangGraph, LangSmith, MCP)         | `[layer4-agents-and-orchestration/](layer4-agents-and-orchestration/)` |
+| 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `models.py`, `eval/` |
 
 - **✅ Works** — runs today; don't edit, build against it.
 - **📝 Exercise** — a stub that raises `NotImplementedError`; you implement it and
@@ -90,19 +91,39 @@ onboarding-assistant-rag/
 ├── app.py                    # 🔒 Streamlit UI (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
+├── layer4-agents-and-orchestration/  # 📦 separate session
+│   ├── README.md             #   session setup, prerequisites, concepts
+│   └── EXERCISES.md          #   hands-on exercises (A1–3, G1–3, MCP1–2, LS1–2)
+├── notes/                    # 📓 concept notebooks (Layer 4 presenter walk-through)
+│   ├── langchain.ipynb
+│   ├── langgraph.ipynb
+│   └── langsmith.ipynb
 ├── checks/                   # self-check scripts (pass/fail)
 │   ├── check_retrieval.py
-│   └── check_memory.py
+│   ├── check_memory.py
+│   ├── check_agent.py        # ← Layer 4
+│   ├── check_graph.py        # ← Layer 4
+│   ├── check_mcp.py          # ← Layer 4
+│   └── check_langsmith.py    # ← Layer 4
 ├── solutions/                # reference answers — try first!
 │   ├── retrieve.py
-│   └── memory.py
+│   ├── memory.py
+│   ├── agent.py              # ← Layer 4
+│   ├── graph.py              # ← Layer 4
+│   ├── mcp_server.py         # ← Layer 4
+│   └── langsmith_utils.py    # ← Layer 4
 └── src/
     ├── config.py             # ✅ all the dials
     ├── ingest.py             # ✅ builds the index
     ├── retrieve.py           # 📝 EXERCISE (R1, R2)
     ├── memory.py             # 📝 EXERCISE (M1, M2)
     ├── rag.py                # 🔒 RAG-generation session
-    ├── agent.py / graph.py / mcp_server.py / models.py   # 🔒 later layers
+    ├── llm.py                # ✅ LiteLLM gateway
+    ├── agent.py              # 📝 EXERCISE (A1, A2, A3) — Layer 4
+    ├── graph.py              # 📝 EXERCISE (G1, G2, G3) — Layer 4
+    ├── mcp_server.py         # 📝 EXERCISE (MCP1, MCP2) — Layer 4
+    ├── langsmith_utils.py    # 📝 EXERCISE (LS1, LS2) — Layer 4
+    ├── models.py             # 🔒 model routing (later layer)
     └── eval/                 # 🔒 evaluation layer
 ```
 
