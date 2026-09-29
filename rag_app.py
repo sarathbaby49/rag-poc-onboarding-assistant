@@ -23,6 +23,7 @@ from src.rag_helper import (
     safe_answer,
     safe_answer_conversational,
     safe_answer_or_abstain,
+    safe_answer_with_citations,
 )
 
 load_dotenv()  # loads ANTHROPIC_API_KEY from .env
@@ -34,6 +35,7 @@ st.caption("Test your src/rag.py answers (G1–G4). Unfinished exercises show a 
 MODES = {
     "G1 — answer (grounded generation)": "answer",
     "G2 — answer_or_abstain (honest I-don't-know)": "abstain",
+    "G3 — used_sources (cite only what's used)": "cited",
     "G4 — answer_conversational (session memory)": "conversational",
 }
 
@@ -72,10 +74,26 @@ if prompt := st.chat_input("e.g. How do I set up my local environment?"):
                 result = safe_answer(prompt)
             elif mode == "abstain":
                 result = safe_answer_or_abstain(prompt)
+            elif mode == "cited":
+                result = safe_answer_with_citations(prompt)
             else:  # conversational
                 result = safe_answer_conversational(prompt, st.session_state.memory)
 
         st.markdown(result["answer"])
+
+        if mode == "cited" and result.get("retrieved"):
+            if result.get("g3_pending"):
+                st.info(
+                    "G3 (`used_sources`) isn't implemented yet — showing all "
+                    f"{result['retrieved']} retrieved sources. Implement it to trim "
+                    "these to only the ones the answer cited."
+                )
+            else:
+                st.caption(
+                    f"G3 filter: retrieved {result['retrieved']} → "
+                    f"cited {len(result['sources'])}"
+                )
+
         if result["sources"]:
             with st.expander("Sources"):
                 for i, hit in enumerate(result["sources"], start=1):

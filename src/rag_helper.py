@@ -110,3 +110,37 @@ def safe_answer_conversational(question: str, memory, **kwargs) -> dict:
         return rag.answer_conversational(question, memory, **kwargs)
     except NotImplementedError as exc:
         return _todo_result(exc)
+
+
+def safe_answer_with_citations(question: str, k: int = config.TOP_K) -> dict:
+    """G3 in action — generate (G1), then trim sources to the ones actually cited.
+
+    used_sources(answer_text, hits) must filter the FULL retrieved set, so we
+    re-fetch the raw hits here (order is deterministic for the same query + k)
+    rather than reusing result["sources"], which a G3-wired answer() may have
+    already trimmed — re-filtering a trimmed list would shift the [n] indices.
+
+    Returns the usual {answer, sources} plus:
+      - retrieved:  how many chunks were retrieved before filtering
+      - g3_pending: None, or the TODO message if used_sources isn't implemented
+    """
+    try:
+        result = rag.answer(question, k=k)
+    except NotImplementedError as exc:
+        return {**_todo_result(exc), "retrieved": 0, "g3_pending": None}
+
+    answer_text = result["answer"]
+    raw_hits = _semantic_search(question, k)  # full retrieved set (fallback-safe)
+    try:
+        cited = rag.used_sources(answer_text, raw_hits)
+        g3_pending = None
+    except NotImplementedError as exc:
+        cited = raw_hits
+        g3_pending = str(exc)
+
+    return {
+        "answer": answer_text,
+        "sources": cited,
+        "retrieved": len(raw_hits),
+        "g3_pending": g3_pending,
+    }
