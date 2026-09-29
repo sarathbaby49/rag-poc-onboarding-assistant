@@ -89,37 +89,33 @@ def code_search(query: str) -> str:
 ### A2 (core 🟡) — Build the agent · ⏱️ ~8 min
 
 **File:** `src/agent.py` → `build_agent()`
-**Goal:** create an `AgentExecutor` that binds the three tools to a chat model.
+**Goal:** create an agent graph that binds the three tools to a chat model.
 
 **What you'll use:**
 
 - `ChatOpenAI` from `langchain_openai` — talks to the LiteLLM proxy
-- `create_tool_calling_agent` from `langchain.agents` — creates the agent
-- `AgentExecutor` from `langchain.agents` — runs the tool-calling loop
-- `ChatPromptTemplate` + `MessagesPlaceholder` for the prompt
+- `create_agent` from `langchain.agents` — the modern LangChain agent builder
 
 **Definition of done** (`python -m checks.check_agent`, section A2):
 
-- `build_agent()` returns an object with `.invoke()` and `.tools`
-- At least 3 tools are bound
+- `build_agent()` returns an object with `.invoke()`
 
 **Hints:**
 
 ```python
+from langchain.agents import create_agent
+
 llm = ChatOpenAI(
     model=config.LLM_MODEL,
     base_url=config.LITELLM_PROXY_API_BASE or None,
     api_key=config.LITELLM_PROXY_API_KEY or None,
 )
 
-prompt = ChatPromptTemplate.from_messages([
-    ("system", SYSTEM_PROMPT),
-    ("human", "{input}"),
-    MessagesPlaceholder(variable_name="agent_scratchpad"),
-])
-
-agent = create_tool_calling_agent(llm, TOOLS, prompt)
-return AgentExecutor(agent=agent, tools=TOOLS, verbose=True)
+return create_agent(
+    model=llm,
+    tools=TOOLS,
+    system_prompt=SYSTEM_PROMPT,
+)
 ```
 
 ### A3 (core 🟢) — Run the agent · ⏱️ ~3 min
@@ -131,7 +127,13 @@ return AgentExecutor(agent=agent, tools=TOOLS, verbose=True)
 
 - `run_agent("What files are in this repo?")` returns a non-empty string
 
-**Hint:** `build_agent().invoke({"input": question})["output"]`
+**Hint:**
+
+```python
+agent = build_agent()
+result = agent.invoke({"messages": [{"role": "user", "content": question}]})
+return result["messages"][-1].content
+```
 
 **Try it:**
 

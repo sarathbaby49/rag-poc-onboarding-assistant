@@ -99,7 +99,7 @@ Head to **[EXERCISES.md](EXERCISES.md)** for the full hands-on tasks:
 | Exercise | What | File | Self-check |
 |----------|------|------|------------|
 | **A1** | Define 3 LangChain tools | `src/agent.py` | `python -m checks.check_agent` |
-| **A2** | Build the AgentExecutor | `src/agent.py` | `python -m checks.check_agent` |
+| **A2** | Build the agent graph | `src/agent.py` | `python -m checks.check_agent` |
 | **A3** | Run the agent | `src/agent.py` | `python -m checks.check_agent` |
 | **G1** | Implement 4 graph node functions | `src/graph.py` | `python -m checks.check_graph` |
 | **G2** | Routing function (conditional edges) | `src/graph.py` | `python -m checks.check_graph` |
@@ -120,7 +120,7 @@ Reference solutions are in `solutions/` — try first, then peek.
 | **LangChain** | Framework for LLM apps: tools, models, prompts, agents | `src/agent.py`, `notes/langchain.ipynb` |
 | **@tool** | Decorator — turns a Python function into something an LLM can call | `src/agent.py` |
 | **LCEL chains** (`\|`) | Fixed pipelines: `prompt \| llm \| parser` | `notes/langchain.ipynb` |
-| **AgentExecutor** | The tool-calling loop: model → tool → result → model → … → answer | `src/agent.py` |
+| **create_agent** | The tool-calling loop: model → tool → result → model → … → answer | `src/agent.py` |
 | **LangGraph** | Stateful multi-step workflows as graphs (nodes + edges) | `src/graph.py`, `notes/langgraph.ipynb` |
 | **StateGraph** | Typed state machine: `TypedDict` state, nodes (functions), edges | `src/graph.py` |
 | **Conditional edges** | Routing: a function inspects state → returns next node name | `src/graph.py` |

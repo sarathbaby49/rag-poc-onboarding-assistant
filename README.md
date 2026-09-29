@@ -40,6 +40,14 @@ shows a friendly "implement this next" message instead of crashing the page:
 streamlit run rag_app.py
 ```
 
+Working the **agents & orchestration** exercises (A1–A3, G1–G3, MCP1–2, LS1–2)?
+The **Orchestration Lab** is the matching UI — chat with the agent, run the
+onboarding graph interactively, test MCP tools, and verify LangSmith config:
+
+```bash
+streamlit run orchestration_lab.py
+```
+
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
 > gateway** — no direct Claude/OpenAI key, just the proxy URL + key in `.env`
@@ -76,6 +84,10 @@ python -m checks.check_embeddings    # E1 (cosine similarity)
 python -m checks.check_retrieval     # R1 (required) + R2, R3 (reported)
 python -m checks.check_memory        # M1 + M2
 python -m checks.check_rag           # G1 + G2, G3, G4 (live checks need the gateway)
+python -m checks.check_agent         # A1 (tools) + A2 (agent) + A3 (run)
+python -m checks.check_graph         # G1 (nodes) + G2 (routing) + G3 (graph)
+python -m checks.check_mcp           # MCP1 (server + tools) + MCP2 (resources)
+python -m checks.check_langsmith     # LS1 (config) + LS2 (@traceable)
 ```
 
 Reference answers live in **`solutions/`** — try the exercise first, then peek if
@@ -101,6 +113,7 @@ onboarding-assistant-rag/
 ├── explore.py                # ✅ retrieval intuition tool (no key)
 ├── retrieval_lab.py          # ✅ Streamlit lab for the R exercises
 ├── rag_app.py                # ✅ Streamlit lab for the G exercises (crash-safe)
+├── orchestration_lab.py       # ✅ Streamlit lab for agent + graph + MCP + LangSmith exercises
 ├── app.py                    # 🔒 Streamlit end-user demo (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
