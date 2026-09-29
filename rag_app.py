@@ -29,20 +29,40 @@ from src.rag_helper import (
 load_dotenv()  # loads ANTHROPIC_API_KEY from .env
 
 st.set_page_config(page_title="RAG Exercise Lab", page_icon="🧪")
+
+# Align each radio's dot with the FIRST line of its label (not the vertical
+# centre), so a label that wraps to two lines still lines up cleanly.
+st.markdown(
+    """
+    <style>
+      div[role="radiogroup"] > label { align-items: flex-start; }
+      div[role="radiogroup"] > label > div:first-child { margin-top: 0.15rem; }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 st.title("🧪 RAG Exercise Lab")
 st.caption("Test your src/rag.py answers (G1–G4). Unfinished exercises show a TODO instead of crashing.")
 
+# label -> (mode key, one-line caption). Short labels stay on one line so the
+# radio dot lines up with the text; the description rides along as a caption.
 MODES = {
-    "G1 — answer (grounded generation)": "answer",
-    "G2 — answer_or_abstain (honest I-don't-know)": "abstain",
-    "G3 — used_sources (cite only what's used)": "cited",
-    "G4 — answer_conversational (session memory)": "conversational",
+    "G1 · answer": ("answer", "grounded generation"),
+    "G2 · answer_or_abstain": ("abstain", "honest “I don’t know”"),
+    "G3 · used_sources": ("cited", "cite only what’s used"),
+    "G4 · answer_conversational": ("conversational", "session memory"),
 }
 
 with st.sidebar:
     st.header("Which exercise?")
-    mode_label = st.radio("Function under test", list(MODES.keys()))
-    mode = MODES[mode_label]
+    labels = list(MODES.keys())
+    mode_label = st.radio(
+        "Function under test",
+        labels,
+        captions=[MODES[label][1] for label in labels],
+    )
+    mode = MODES[mode_label][0]
     st.divider()
     if st.button("🧹 Clear conversation"):
         st.session_state.history = []
