@@ -50,6 +50,7 @@ def answer(
     *,
     history: list[dict] | None = None,
     memories: list[str] | None = None,
+    recalled: list[str] | None = None,
     retriever: Callable[[str, int], list[dict]] = semantic_search,
     generate: Callable[..., str] = complete,
 ) -> dict:
@@ -65,8 +66,12 @@ def answer(
     Memory wiring (optional, so single-shot callers like app.py stay simple):
       - `history`  : prior conversation turns ({"role", "content"}) — session
                      memory — so follow-ups ("what about the tests?") have context.
-      - `memories` : relevant long-term facts recalled by meaning (MemoryStore) or
-                     a joinee profile, injected as extra system context.
+      - `memories` : stable facts about the person (e.g. a joinee profile),
+                     injected as a "what you already know" system message.
+      - `recalled` : long-term memories pulled by MEANING for this question
+                     (MemoryStore.recall), injected as their OWN labeled system
+                     message so they're distinct from the profile in the context
+                     window.
       - `retriever`: which retrieval function to use (semantic_search by default;
                      pass hybrid_search to blend in keyword matching).
       - `generate` : which generator to call (the LiteLLM gateway `complete` by
@@ -77,11 +82,17 @@ def answer(
 
     messages: list[dict] = [{"role": "system", "content": SYSTEM_PROMPT}]
     if memories:
-        remembered = "\n".join(f"- {m}" for m in memories)
+        known = "\n".join(f"- {m}" for m in memories)
         messages.append({
             "role": "system",
-            "content": "What you already know about this person / earlier in the "
-                       f"conversation:\n{remembered}",
+            "content": f"What you already know about this person:\n{known}",
+        })
+    if recalled:
+        remembered = "\n".join(f"- {m}" for m in recalled)
+        messages.append({
+            "role": "system",
+            "content": "Recalled from earlier (by relevance) — past things this "
+                       f"person said that relate to their question:\n{remembered}",
         })
     if history:
         messages.extend(history)

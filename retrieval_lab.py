@@ -375,7 +375,8 @@ def render_context_window(messages: list[dict]) -> None:
         st.code(content, language="markdown")
 
 
-def render_map(query_vec=None, query_label: str | None = None, hits: list[dict] | None = None) -> None:
+def render_map(query_vec=None, query_label: str | None = None, hits: list[dict] | None = None,
+               memories: list[dict] | None = None) -> None:
     data = get_collection().get(include=["embeddings", "documents", "metadatas"])
     embs = np.array(data["embeddings"])
     if len(embs) < 2:
@@ -459,11 +460,32 @@ def render_map(query_vec=None, query_label: str | None = None, hits: list[dict] 
             .encode(x="x", y="y", tooltip=["label"])
         )
 
+    # Long-term memories (MemoryStore) — same embedding space as the chunks, so we
+    # project them through the SAME PCA (exactly like the query ◆) and draw them as a
+    # distinct amber ★ layer. Only vectors whose dimensionality matches the current
+    # index are plotted (a memory embedded with a different model can't share this space).
+    if memories:
+        dim = embs.shape[1]
+        mem_ok = [m for m in memories
+                  if isinstance(m.get("embedding"), list) and len(m["embedding"]) == dim]
+        if mem_ok:
+            mxy = pca.transform(np.array([m["embedding"] for m in mem_ok]))
+            mdf = pd.DataFrame({
+                "x": mxy[:, 0], "y": mxy[:, 1],
+                "memory": [m["text"].replace("\n", " ")[:90] for m in mem_ok],
+            })
+            layers.append(
+                alt.Chart(mdf).mark_point(shape="triangle-up", size=260, filled=True,
+                                          color="#d97706", stroke="#92400e", strokeWidth=1.5)
+                .encode(x="x", y="y", tooltip=["memory"])
+            )
+
     st.altair_chart(alt.layer(*layers).interactive(), width="stretch")
     st.caption("Each dot is a chunk (colour = source file). Nearby dots mean similar "
                "meaning. The blue ◆ is your query; blue lines connect it to the chunks it "
-               "retrieved (haloed, numbered by rank). **Click a file in the legend** to "
-               "spotlight its chunks; hover any dot for its id, source, length, rank and "
+               "retrieved (haloed, numbered by rank). Amber ▲ are long-term memories "
+               "(MemoryStore) projected into the same space. **Click a file in the legend** "
+               "to spotlight its chunks; hover any dot for its id, source, length, rank and "
                "similarity to your query.")
 
 
@@ -657,14 +679,14 @@ with tab_assistant:
             recalled = ss.mem_store.recall(msg, k=3) if (use_memory and ss.mem_store.items) else []
             prof_facts = (profile_lines(load_or_create_profile(joinee_name, joinee_role))
                           if use_memory else [])
-            # Profile first (who they are), then facts recalled by meaning.
-            memories = prof_facts + recalled
+            # Keep the two kinds separate so they show as distinct system messages in
+            # the context window: the profile (who they are) vs. facts recalled by meaning.
             history = ss.session_mem.as_messages() if use_memory else []
             try:
                 with st.spinner("Retrieving context and generating a grounded answer…"):
                     result = rag.answer(
                         msg, st.session_state.topk,
-                        history=history, memories=memories,
+                        history=history, memories=prof_facts, recalled=recalled,
                         retriever=get_retriever(retr_name),
                         generate=llm.complete,
                     )
@@ -741,9 +763,12 @@ with tab_assistant:
 with tab_map:
     if not index_exists():
         st.info("Re-ingest to build the vector store, then come back to see the map.")
-    elif ss.history:
-        last = ss.history[0]  # newest-first
-        render_map(np.array(last["query_vec"]), last["query"], last["hits"])
     else:
-        render_map()
-        st.caption("Ask a query on the Retrieve tab to see it projected onto the map.")
+        mem_items = ss.mem_store.items if ss.get("mem_store") else None
+        if ss.history:
+            last = ss.history[0]  # newest-first
+            render_map(np.array(last["query_vec"]), last["query"], last["hits"],
+                       memories=mem_items)
+        else:
+            render_map(memories=mem_items)
+            st.caption("Ask a query on the Retrieve tab to see it projected onto the map.")
