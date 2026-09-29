@@ -46,6 +46,7 @@ python -m checks.check_embeddings    # E1
 python -m checks.check_retrieval     # R1 (+ R2, R3 reported)
 python -m checks.check_memory        # M1, M2
 python -m checks.check_ingest        # regression check for the default chunker
+python -m checks.check_rag           # G1 (+ G2, G3, G4); live checks need the gateway
 ```
 
 ---
@@ -266,6 +267,146 @@ memory carries the conversation and the person. The **RAG-generation** session
 (Layer 4) adds tool use and guided flows, and **MCP** makes it all available
 inside your IDE. Other layers (routing, eval) live in their own stubs — see the
 table in `README.md`.
+
+---
+
+# Part E — Generation · the "G" in RAG  🎤
+
+> **Seminar layer.** Retrieval gets the *right context* in front of the model.
+> Generation turns it into a **grounded, cited answer** — and, just as important,
+> knows when to say **"I don't know."** This is the payoff the whole repo was
+> building toward.
+
+**File you edit:** `src/rag.py`. **Self-check:** `python -m checks.check_rag`.
+Difficulty: 🟢 easy · 🟡 medium · 🔵 explore.
+
+### Before you start
+- This layer calls a language model through the **LiteLLM gateway**, so the *live*
+  exercises need `.env` (copy `.env.example`) — verify once with
+  `python -m checks.check_llm`. **But the safety behaviour is key-free:** G2's
+  abstention and G3's citation filter self-check with **no API key at all**.
+- **Generation depends on Retrieval.** Implement **R1** (`semantic_search`) first,
+  or copy `solutions/retrieve.py`. G2 also needs **R3** (`confident_hits`); G4
+  needs **M1** (`SessionMemory.as_messages`).
+- **Handed to you** in `src/rag.py`: `SYSTEM_PROMPT` (the assistant's
+  "constitution") and `format_context` (numbers the chunks so the model can cite
+  `[1]`, `[2]`) — the scaffolding, just like `_encoder()`/`_collection()` were in
+  the retrieval exercises.
+
+**Watch it live — two UIs:**
+- `streamlit run rag_app.py` — the **RAG Exercise Lab**. A sidebar selector picks
+  which function to test (**G1** `answer`, **G2** `answer_or_abstain`, **G4**
+  `answer_conversational`), so you can work the exercises in any order. Because it
+  goes through `src/rag_helper.py`, an exercise (or a dependency like R1/R3/M1)
+  you haven't finished yet shows a friendly "implement this next" message instead
+  of crashing — the page doubles as a live progress board.
+- `streamlit run app.py` — the polished **end-user chat demo**. It calls
+  `answer()` directly (no safety net), so it needs G1 done, and is what you'd show
+  off once the layer works.
+
+---
+
+## ⏱️ Run of show (~45 min)
+
+| Time | What |
+|------|------|
+| 0:00–0:10 | Concept: retrieval → grounded prompt → cited answer. Why "answer only from context" is the whole game. Demo `app.py` on the reference build. |
+| 0:10–0:24 | **G1** — `answer` (everyone) · self-check · watch it live in `rag_app.py` |
+| 0:24–0:36 | Pick your depth: **G2** abstention (the safety property) · **G3** trustworthy citations |
+| 0:36–0:44 | **G4** conversational memory · or **G5** prompt-craft the constitution |
+| 0:44–0:45 | Recap: how ingestion + embeddings + retrieval + memory all fed this one answer. |
+
+Fast finishers: **G4** (memory) or the **Further ideas** below. Nobody needs to finish everything.
+
+---
+
+### G1 (core 🟢) — Grounded, cited generation · ⏱️ ~12 min
+**File:** `src/rag.py` → `answer()`
+**Goal:** retrieve the top-k chunks, hand them to the model with the `SYSTEM_PROMPT`,
+and make it answer **only** from that context, citing `[n]`. Return
+`{"answer", "sources"}`.
+
+**Definition of done** (`python -m checks.check_rag`, live check needs the gateway):
+- returns a dict with `"answer"` (str) and `"sources"` (the retrieved hits)
+- asking *"How do I set up my local environment?"* returns `setup.md` among the
+  sources and an answer containing a `[n]` citation marker
+
+**Hints:**
+- `hits = semantic_search(question, k)` → `context = format_context(hits)`
+- `complete([{system}, {user}], max_tokens=config.MAX_TOKENS)` where the user
+  content is `f"Context sources:\n\n{context}\n\nQuestion: {question}"`
+- Reference: `solutions/rag.py`.
+
+**The key idea to say out loud:** the model never sees the corpus — only the 4
+chunks retrieval chose, plus the rules. That's why the answer is checkable.
+
+### G2 (core 🟡) — Honest "I don't know" (abstention) · ⏱️ ~10 min  · *(needs R1 + R3)*
+**File:** `src/rag.py` → `answer_or_abstain()`
+**Goal:** `semantic_search` **always** returns k chunks — even for a question the
+corpus can't answer — so a naive assistant answers from junk. Gate on confidence:
+if nothing clears the bar, hand off to a human **without calling the model** (no
+tokens spent, zero chance of a hallucinated answer).
+
+**Definition of done** (`python -m checks.check_rag` — the abstain path is **key-free**):
+- at a high `min_score` (e.g. `0.99`) it returns `ABSTAIN_MESSAGE` and **empty
+  sources**, and never reaches the gateway
+- on-topic (with the gateway) it returns a real cited answer
+
+**Hint:** `hits = confident_hits(question, k, min_score)` (R3); if `not hits`,
+`return {"answer": ABSTAIN_MESSAGE, "sources": []}`; otherwise generate like G1.
+`ABSTAIN_MESSAGE` is already defined for you.
+
+### G3 (stretch 🔵) — Trustworthy citations · ⏱️ ~8 min
+**File:** `src/rag.py` → `used_sources()`
+**Goal:** grounding you don't verify is just a promise. You give the model k
+sources but it may only cite `[2]` — so the **Sources** panel should show `[2]`,
+not all k. Pure function, **no key needed**.
+
+**Definition of done** (`python -m checks.check_rag`, key-free):
+- `"See [1] and [3]."` over 3 hits → returns hits 1 and 3 (in order)
+- text with no `[n]` markers → returns `[]`
+
+**Hint:** `re.findall(r"\[(\d+)\]", answer_text)` gives the cited numbers; one
+comprehension filters the hits by 1-based position. Then wire it into
+`answer()` so `sources = used_sources(text, hits)`.
+
+### G4 (stretch 🟡) — Conversational RAG (memory) · ⏱️ ~10 min  · *(needs M1)*
+**File:** `src/rag.py` → `answer_conversational()`
+**Goal:** *"how do I run it?"* → *"what about the tests?"* only works if the model
+sees the last few turns. Splice the session **window** into the call.
+
+**Definition of done** (`python -m checks.check_rag`, live check needs the gateway):
+- returns an answer and records **both** turns (memory grows by 2)
+- a follow-up that omits the subject still answers on-topic
+
+**Hint:** `messages = [{system}, *memory.as_messages(), {user}]` (M1's window keeps
+the token budget bounded); after generating, `memory.add("user", q)` and
+`memory.add("assistant", text)`.
+
+### G5 (explore 🔵) — Prompt-craft the "constitution" · ⏱️ ~8 min
+**File:** `src/rag.py` → `SYSTEM_PROMPT` *(no self-check — you're the judge)*
+The `SYSTEM_PROMPT` is the single line that makes RAG **safe**. Experiment and
+re-run a few questions in `rag_app.py` (or `app.py`) after each change:
+- **Remove** *"Answer ONLY using the numbered context sources"* — watch it drift
+  back to its own memory and answer things the docs never said.
+- **Add** *"Quote the exact line you're citing."* — do citations get sharper?
+- **Retune the tone** for a nervous first-day joiner.
+
+**What to observe:** how much answer quality and faithfulness ride on one prompt.
+
+---
+
+## Further ideas (if the room is flying)
+- **Streaming** — stream tokens to the UI instead of waiting for the whole answer.
+- **Query condensing** (better G4) — before retrieving, rewrite the follow-up into
+  a standalone question using the history, so retrieval isn't confused by pronouns.
+- **Faithfulness eval** — score each answer with the golden set in `src/eval/`
+  (keyword coverage, or LLM-as-judge). Ties this layer to Layer 6.
+
+## Where this fits
+G1–G4 are the capstone: **ingestion + embeddings + retrieval + memory all exist to
+feed this one grounded, cited answer.** It's the "G" the "R" was built for — and the
+handoff point to the agent, routing and eval layers (see the table in `README.md`).
 
 ---
 
