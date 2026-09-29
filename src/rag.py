@@ -30,6 +30,7 @@ from __future__ import annotations
 
 import re
 import sys
+from typing import Callable
 
 from src import config
 from src.llm import complete
