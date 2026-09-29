@@ -16,8 +16,11 @@ The scaffolding is done for you: SYSTEM_PROMPT (the assistant's "constitution") 
 format_context (numbers the chunks so the model can cite them) — just like
 _encoder()/_collection() were handed to you in the Retrieval exercises.
 
-Depends on Retrieval: implement R1 (`semantic_search`) first, or copy
-solutions/retrieve.py. G2 also needs R3 (`confident_hits`); G4 needs M1 (memory).
+Self-contained: these G exercises DON'T depend on the earlier sessions being
+finished. `semantic_search` (R1), `confident_hits` (R3) and `SessionMemory` (M1)
+are provided ready-made by src/rag_helper.py (see the import below), so you can
+build the whole generation layer on its own. (If you'd rather run on your OWN
+R1/R3/M1, import them from src.retrieve / src.memory instead.)
 
 Reference answers: solutions/rag.py.  Verify the gateway first: python -m checks.check_llm
 Self-check your work:  python -m checks.check_rag
@@ -30,7 +33,10 @@ import sys
 
 from src import config
 from src.llm import complete
-from src.retrieve import semantic_search, confident_hits
+# semantic_search (R1) and confident_hits (R3) come from rag_helper, not
+# src.retrieve, so these G exercises are self-contained — they run even if the
+# retrieval exercises aren't done yet. See src/rag_helper.py.
+from src.rag_helper import semantic_search, confident_hits
 
 # The system prompt is the assistant's "constitution". Note the two rules that
 # make RAG safe: answer only from context, and say so when the context is thin.
@@ -77,7 +83,7 @@ def answer(question: str, k: int = config.TOP_K) -> dict:
     came from. That's what makes answers trustworthy and checkable.
 
     Steps:
-      1. hits = semantic_search(question, k)          # needs Retrieval (R1) done
+      1. hits = semantic_search(question, k)          # provided by rag_helper
       2. context = format_context(hits)
       3. Ask the model through the gateway, giving it the SYSTEM_PROMPT plus the
          numbered context and the question:
@@ -107,7 +113,7 @@ def answer_or_abstain(question: str, k: int = config.TOP_K, min_score: float = 0
     model (no tokens spent, zero chance of a hallucinated answer).
 
     Steps:
-      1. hits = confident_hits(question, k, min_score)      # needs R1 + R3 done
+      1. hits = confident_hits(question, k, min_score)      # provided by rag_helper
       2. if not hits:  return {"answer": ABSTAIN_MESSAGE, "sources": []}   # short-circuit!
       3. otherwise, generate exactly like G1 over `hits` and return {"answer", "sources"}.
 
@@ -146,8 +152,9 @@ def answer_conversational(question: str, memory, k: int = config.TOP_K) -> dict:
     """EXERCISE G4 — thread session memory so follow-ups work.
 
     "how do I run it?"  ->  "what about the tests?" only makes sense if the model
-    sees the last few turns. `memory` is a src.memory.SessionMemory (its M1
-    `as_messages()` returns the recent window, so the token budget stays bounded).
+    sees the last few turns. `memory` is a SessionMemory (provided ready-made by
+    rag_helper); its `as_messages()` returns the recent window, so the token
+    budget stays bounded.
 
     Steps:
       1. hits = semantic_search(question, k);  context = format_context(hits)
