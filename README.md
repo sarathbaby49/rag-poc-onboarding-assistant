@@ -31,6 +31,15 @@ a 2D map (no API key):
 streamlit run retrieval_lab.py
 ```
 
+Working the **generation** exercises (G1–G4)? The **RAG Exercise Lab** is the
+matching UI — pick which function to test in the sidebar and chat against it.
+Because it goes through `src/rag_helper.py`, an exercise you haven't finished yet
+shows a friendly "implement this next" message instead of crashing the page:
+
+```bash
+streamlit run rag_app.py
+```
+
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
 > gateway** — no direct Claude/OpenAI key, just the proxy URL + key in `.env`
@@ -45,11 +54,12 @@ streamlit run retrieval_lab.py
 | ✅ Works | Ingestion pipeline (boundary-aware chunking) + the dials | `src/ingest.py`, `src/config.py` |
 | ✅ Works | Retrieval intuition explorer (no key) | `explore.py` |
 | ✅ Works | **Retrieval Lab** — chat UI + ingestion controls + vector map | `retrieval_lab.py` |
+| ✅ Works | **RAG Exercise Lab** — chat UI for G1–G4; unfinished exercises show a TODO instead of crashing | `rag_app.py`, `src/rag_helper.py` |
 | 📝 **Exercise** | **Ingestion** — compare chunkers (I1, optional), bring your own data (I2) | `src/ingest.py`, `data/` |
 | 📝 **Exercise** | **Embeddings** — cosine by hand (E1), swap model (E2) | `src/embeddings.py`, `src/config.py` |
 | 📝 **Exercise** | **Retrieval** — semantic (R1), hybrid (R2), confidence (R3) | `src/retrieve.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
-| 🔒 Other session | RAG generation (retrieve → grounded, cited answer) | `src/rag.py`, `app.py` |
+| 📝 **Exercise** | **Generation** — grounded, cited answer (G1), abstain (G2), citations (G3), memory (G4) | `src/rag.py`, `app.py` |
 | 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `src/agent.py`, `graph.py`, `mcp_server.py`, `models.py`, `eval/` |
 
 - **✅ Works** — runs today; don't edit, build against it.
@@ -64,6 +74,7 @@ python -m checks.check_ingest        # I1 (boundary-aware chunking)
 python -m checks.check_embeddings    # E1 (cosine similarity)
 python -m checks.check_retrieval     # R1 (required) + R2, R3 (reported)
 python -m checks.check_memory        # M1 + M2
+python -m checks.check_rag           # G1 + G2, G3, G4 (live checks need the gateway)
 ```
 
 Reference answers live in **`solutions/`** — try the exercise first, then peek if
@@ -87,7 +98,9 @@ onboarding-assistant-rag/
 ├── README.md                 # you are here
 ├── EXERCISES.md              # the hands-on tasks + run-of-show
 ├── explore.py                # ✅ retrieval intuition tool (no key)
-├── app.py                    # 🔒 Streamlit UI (works once src/rag.py is built)
+├── retrieval_lab.py          # ✅ Streamlit lab for the R exercises
+├── rag_app.py                # ✅ Streamlit lab for the G exercises (crash-safe)
+├── app.py                    # 🔒 Streamlit end-user demo (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
 ├── checks/                   # self-check scripts (pass/fail)
@@ -101,7 +114,8 @@ onboarding-assistant-rag/
     ├── ingest.py             # ✅ builds the index
     ├── retrieve.py           # 📝 EXERCISE (R1, R2)
     ├── memory.py             # 📝 EXERCISE (M1, M2)
-    ├── rag.py                # 🔒 RAG-generation session
+    ├── rag.py                # 📝 EXERCISE (G1–G4) — the "G" in RAG
+    ├── rag_helper.py         # ✅ crash-safe wrappers used by rag_app.py
     ├── agent.py / graph.py / mcp_server.py / models.py   # 🔒 later layers
     └── eval/                 # 🔒 evaluation layer
 ```
