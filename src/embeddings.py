@@ -12,6 +12,7 @@ Self-check:  python -m checks.check_embeddings
 
 from __future__ import annotations
 
+import math
 from functools import lru_cache
 
 from sentence_transformers import SentenceTransformer
@@ -33,17 +34,16 @@ def embed(text: str) -> list[float]:
 
 
 def cosine_similarity(a: list[float], b: list[float]) -> float:
-    """EXERCISE E1 — cosine similarity between two vectors, in the range -1..1.
+    """Cosine similarity between two vectors, in the range -1..1.
 
         cosine = (a · b) / (|a| * |b|)
 
-      - a · b  (the dot product) = sum(ai * bi over all i)
-      - |a|    (the length)      = sqrt(sum(ai * ai))
-
-    For normalized vectors |a| = |b| = 1, so this reduces to the dot product —
-    but implement the full formula so it works for ANY two vectors.
-
-    Self-check:  python -m checks.check_embeddings
+    For normalized vectors |a| = |b| = 1, so this reduces to the dot product, but
+    the full formula works for any two vectors.
     """
-    # TODO(E1): implement the cosine formula above (pure Python is fine — no numpy needed).
-    raise NotImplementedError("Exercise E1: implement cosine_similarity — see EXERCISES.md")
+    dot = sum(x * y for x, y in zip(a, b))
+    na = math.sqrt(sum(x * x for x in a))
+    nb = math.sqrt(sum(y * y for y in b))
+    if na == 0 or nb == 0:
+        return 0.0
+    return dot / (na * nb)
