@@ -44,7 +44,7 @@ python explore.py keyword "RazorpayProvider"             # keyword vs semantic �
 ```bash
 python -m checks.check_embeddings    # E1
 python -m checks.check_retrieval     # R1 (+ R2, R3 reported)
-python -m checks.check_memory        # M1, M2
+python -m checks.check_memory        # M1, M3, M4
 python -m checks.check_ingest        # regression check for the default chunker
 python -m checks.check_rag           # G1 (+ G2, G3, G4); live checks need the gateway
 ```
@@ -58,8 +58,8 @@ python -m checks.check_rag           # G1 (+ G2, G3, G4); live checks need the g
 | 0:00–0:10 | Concept: embeddings, cosine, ingest → store → retrieve. Live-drive `explore.py`. |
 | 0:10–0:22 | **R1** — `semantic_search` (everyone) · self-check |
 | 0:22–0:38 | Pick your depth: **E1** cosine · **I1** compare chunkers · **I2** bring your own data · **R3** confidence · **E2** swap model |
-| 0:38–0:48 | Memory: **M1** session window · **M2** profile persistence |
-| 0:48–0:50 | Recap: how it all feeds the RAG-generation layer next. |
+| 0:38–0:46 | Memory: **M1** session window · **M3** summary buffer · **M4** semantic recall (`JoineeProfile` is provided) |
+| 0:46–0:50 | Recap: short-term vs long-term, why bigger context isn't the fix, how it feeds the RAG-generation layer next. |
 
 Fast finishers go for **R2** (hybrid search). Nobody needs to finish everything.
 
@@ -206,6 +206,29 @@ list, then sort by the fused score. No weight tuning needed.
 
 # Part D — Memory
 
+> **Three assignments here — M1, M3 and M4.** `JoineeProfile` is **provided,
+> already working** (read it) as the worked example of persistent long-term
+> memory. The rest — the session window (M1), the summary buffer (M3) and
+> semantic recall (M4) — are yours to implement.
+
+### The two topics in one minute
+
+**1. Short-term vs long-term memory** — two different jobs. Short-term (**M1**) is
+the **live conversation**: the last few turns, cheap, gone when the chat ends.
+Long-term is the **durable store**: who the person is — either a saved profile
+(`JoineeProfile`, provided) or memories you search by meaning (**M4**). A real app
+runs both.
+
+**2. When context length alone isn't enough** — "just use a bigger window / a
+longer-context model" fails three ways: it's **expensive** (you pay for every
+token, every turn), it's **slow**, and quality drops as the real answer is
+**buried** among thousands of irrelevant tokens ("lost in the middle"). The
+durable fixes are to **compress** old turns into a running summary (**M3**) and to
+**retrieve** only the relevant pieces on demand (**M4**, which is just R1's
+retrieval pointed at the conversation instead of docs).
+
+> 📖 Deeper write-up + diagrams: **`docs/layer3-memory-and-context.md`**.
+
 ### M1 (core 🟢) — Session window · ⏱️ ~5 min
 **File:** `src/memory.py` → `SessionMemory.as_messages()`
 **Goal:** return only the last `self.window` turns so follow-up questions have
@@ -216,20 +239,43 @@ context without blowing the token budget.
 
 **Hint:** one line — a list slice (`self.turns[-self.window:]`).
 
-### M2 (core 🟡) — Profile persistence · ⏱️ ~8 min
-**File:** `src/memory.py` → `JoineeProfile.save()` and `.load()`
-**Goal:** remember *who* the joinee is across restarts (role, completed steps) by
-saving to a JSON file and loading it back.
+### M3 (core 🟡) — Summary buffer (compress overflow) · ⏱️ ~8 min
+**File:** `src/memory.py` → `SummaryBufferMemory.add()`
+**Goal:** keep the last `self.window` turns verbatim, but instead of *dropping*
+older turns like a plain window does, **fold them into a running summary** so the
+gist of the whole conversation survives at a fixed token cost. `_extractive_summary`
+(the summariser) and `as_context()` (assembles summary + live turns) are provided —
+you write the overflow logic in `add()`.
 
-**Definition of done:**
-- `save()` writes a JSON file (e.g. `.profiles/<name>.json`)
-- `JoineeProfile.load(name)` returns a profile with the same
-  `name` / `role` / `completed_steps`
-- (bonus) call `self.save()` inside `record_step()` so progress auto-persists.
+**Definition of done** (`python -m checks.check_memory`):
+- with `window=2` and 4 turns added, `turns` holds only the last 2 (in order) and
+  `summary` contains the two oldest turns that scrolled off.
 
-**Hint:** `from src import config` gives `config.BASE_DIR`;
-`json.dumps(...)` + `Path.write_text(...)` to save, `json.loads(Path.read_text())`
-to load. Create the folder with `Path.mkdir(exist_ok=True)`.
+**Hint:** append the turn, then `while len(self.turns) > self.window:` pop the
+oldest (`self.turns.pop(0)`) and roll it in —
+`self.summary = self.summarize(self.summary, old["role"], old["content"])`.
+
+### M4 (core 🟡) — Semantic recall (memory as retrieval) · ⏱️ ~8 min
+**File:** `src/memory.py` → `MemoryStore.recall()`  · *(reuses `embed`)*
+**Goal:** recall the *relevant* memory, not the *recent* one. A window can only
+return the latest turns; but the fact you need ("I'm on the payments team") may be
+50 turns back. Embed every memory once, then at query time return the closest ones
+by cosine — this is R1's retrieval aimed at the conversation. (The best "aha" of
+the session, and it reuses the embeddings + cosine you already built.)
+
+**Definition of done** (`python -m checks.check_memory`):
+- after remembering three facts (payments team, coffee machine, standup time),
+  `recall("which team am I part of?", k=1)` returns the **payments** memory —
+  even though it was added *first* and the standup memory is more recent.
+
+**Hint:** `from src.embeddings import embed`; embeddings are normalised, so cosine
+is just the dot product — `sorted(items, key=lambda it: sum(a*b for a,b in zip(q, it["embedding"])), reverse=True)[:k]`.
+
+### Provided (read, don't code) — `JoineeProfile`
+Long-term memory of a joinee's **role + onboarding progress**, persisted to a JSON
+file (`.profiles/<name>.json`) so it survives a restart. It's the worked example of
+durable long-term memory — `record_step()` auto-saves progress. Read it in
+`src/memory.py`; nothing to implement.
 
 ---
 
@@ -249,7 +295,9 @@ Ask if you'd like any of these scaffolded as full exercises.
 ## Where this goes next
 
 Ingestion + embeddings + retrieval get the *right context* in front of the model;
-memory carries the conversation and the person. The **RAG-generation** session
+memory carries the conversation and the person — short-term for the live chat,
+long-term for who they are, and semantic recall for when a window or a bigger
+context isn't enough. The **RAG-generation** session
 (`src/rag.py`) plugs both into a grounded, cited answer. Other layers (agent,
 routing, eval) live in their own stubs — see the table in `README.md`.
 
