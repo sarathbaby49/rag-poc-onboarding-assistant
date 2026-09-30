@@ -279,7 +279,16 @@ durable long-term memory — `record_step()` auto-saves progress. Read it in
 
 ---
 
-## Further ideas (if the room is flying)
+# Part E — Agents & Orchestration (Layer 4)
+
+**This is a separate session with its own setup and prerequisites.**
+
+👉 Head to **[`layer4-agents-and-orchestration/`](layer4-agents-and-orchestration/)** for the
+full README, setup instructions, and exercises (A1–3, G1–3, MCP1–2, LS1–2).
+
+---
+
+## Further ideas (if time permits)
 
 - **Metadata filtering** — store each chunk's file `type` in `ingest.py` metadata,
   then use Chroma's `where=` to search only code, or only docs.
@@ -287,8 +296,12 @@ durable long-term memory — `record_step()` auto-saves progress. Read it in
   other.
 - **Query expansion** — embed a couple of rephrasings of the question and merge
   their hits.
-
-Ask if you'd like any of these scaffolded as full exercises.
+- **Agent memory** — give the agent `SessionMemory` so follow-up questions work
+  across tool calls.
+- **Multi-step graph** — extend the LangGraph flow with a "first ticket" node that
+  assigns a starter task and a "first PR" node that reviews their code.
+- **LangSmith evaluation** — use LangSmith's evaluation framework to build a
+  golden-set test for agent quality (latency, tool usage, answer correctness).
 
 ---
 

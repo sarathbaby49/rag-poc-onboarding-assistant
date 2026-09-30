@@ -40,6 +40,14 @@ shows a friendly "implement this next" message instead of crashing the page:
 streamlit run rag_app.py
 ```
 
+Working the **agents & orchestration** exercises (A1–A3, G1–G3, MCP1–2, LS1–2)?
+The **Orchestration Lab** is the matching UI — chat with the agent, run the
+onboarding graph interactively, test MCP tools, and verify LangSmith config:
+
+```bash
+streamlit run orchestration_lab.py
+```
+
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
 > gateway** — no direct Claude/OpenAI key, just the proxy URL + key in `.env`
@@ -62,7 +70,8 @@ streamlit run rag_app.py
 | 🔒 Other session | RAG generation (retrieve → grounded, cited answer) | `src/rag.py`, `app.py` |
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
 | 📝 **Exercise** | **Generation** — grounded, cited answer (G1), abstain (G2), citations (G3), memory (G4) | `src/rag.py`, `app.py` |
-| 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `src/agent.py`, `graph.py`, `mcp_server.py`, `models.py`, `eval/` |
+|  📝 **Exercise** | **Agents & Orchestration** (LangChain, LangGraph, LangSmith, MCP)         | `[layer4-agents-and-orchestration/](layer4-agents-and-orchestration/)` |
+| 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `models.py`, `eval/` |
 
 - **✅ Works** — runs today; don't edit, build against it.
 - **📝 Exercise** — a stub that raises `NotImplementedError`; you implement it and
@@ -77,6 +86,10 @@ python -m checks.check_embeddings    # E1 (cosine similarity)
 python -m checks.check_retrieval     # R1 (required) + R2, R3 (reported)
 python -m checks.check_memory        # M1 + M2
 python -m checks.check_rag           # G1 + G2, G3, G4 (live checks need the gateway)
+python -m checks.check_agent         # A1 (tools) + A2 (agent) + A3 (run)
+python -m checks.check_graph         # G1 (nodes) + G2 (routing) + G3 (graph)
+python -m checks.check_mcp           # MCP1 (server + tools) + MCP2 (resources)
+python -m checks.check_langsmith     # LS1 (config) + LS2 (@traceable)
 ```
 
 Reference answers live in **`solutions/`** — try the exercise first, then peek if
@@ -102,15 +115,31 @@ onboarding-assistant-rag/
 ├── explore.py                # ✅ retrieval intuition tool (no key)
 ├── retrieval_lab.py          # ✅ Streamlit lab for the R exercises
 ├── rag_app.py                # ✅ Streamlit lab for the G exercises (crash-safe)
+├── orchestration_lab.py       # ✅ Streamlit lab for agent + graph + MCP + LangSmith exercises
 ├── app.py                    # 🔒 Streamlit end-user demo (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
+├── layer4-agents-and-orchestration/  # 📦 separate session
+│   ├── README.md             #   session setup, prerequisites, concepts
+│   └── EXERCISES.md          #   hands-on exercises (A1–3, G1–3, MCP1–2, LS1–2)
+├── notes/                    # 📓 concept notebooks (Layer 4 presenter walk-through)
+│   ├── langchain.ipynb
+│   ├── langgraph.ipynb
+│   └── langsmith.ipynb
 ├── checks/                   # self-check scripts (pass/fail)
 │   ├── check_retrieval.py
-│   └── check_memory.py
+│   ├── check_memory.py
+│   ├── check_agent.py        # ← Layer 4
+│   ├── check_graph.py        # ← Layer 4
+│   ├── check_mcp.py          # ← Layer 4
+│   └── check_langsmith.py    # ← Layer 4
 ├── solutions/                # reference answers — try first!
 │   ├── retrieve.py
-│   └── memory.py
+│   ├── memory.py
+│   ├── agent.py              # ← Layer 4
+│   ├── graph.py              # ← Layer 4
+│   ├── mcp_server.py         # ← Layer 4
+│   └── langsmith_utils.py    # ← Layer 4
 └── src/
     ├── config.py             # ✅ all the dials
     ├── ingest.py             # ✅ builds the index
@@ -118,7 +147,11 @@ onboarding-assistant-rag/
     ├── memory.py             # 📝 EXERCISE (M1, M2)
     ├── rag.py                # 📝 EXERCISE (G1–G4) — the "G" in RAG
     ├── rag_helper.py         # ✅ crash-safe wrappers used by rag_app.py
-    ├── agent.py / graph.py / mcp_server.py / models.py   # 🔒 later layers
+    ├── agent.py              # 📝 EXERCISE (A1, A2, A3) — Layer 4
+    ├── graph.py              # 📝 EXERCISE (G1, G2, G3) — Layer 4
+    ├── mcp_server.py         # 📝 EXERCISE (MCP1, MCP2) — Layer 4
+    ├── langsmith_utils.py    # 📝 EXERCISE (LS1, LS2) — Layer 4
+    ├── models.py             # 🔒 model routing (later layer)
     └── eval/                 # 🔒 evaluation layer
 ```
 
