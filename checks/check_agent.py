@@ -24,17 +24,10 @@ def main() -> None:
     try:
         from src.agent import code_search, read_file, git_blame, REPO_ROOT
 
-        # Check code_search is callable
-        cs_callable = callable(code_search)
-        results.append(_check("code_search is callable", cs_callable))
-
-        # Check read_file is callable
-        rf_callable = callable(read_file)
-        results.append(_check("read_file is callable", rf_callable))
-
-        # Check git_blame is callable
-        gb_callable = callable(git_blame)
-        results.append(_check("git_blame is callable", gb_callable))
+        # Check tools exist and are usable (callable or LangChain StructuredTool)
+        for name, fn in [("code_search", code_search), ("read_file", read_file), ("git_blame", git_blame)]:
+            is_tool = callable(fn) or hasattr(fn, "invoke")
+            results.append(_check(f"{name} is callable", is_tool))
 
         # Check they are LangChain tools (have .name attribute from @tool)
         has_tool_attr = all(

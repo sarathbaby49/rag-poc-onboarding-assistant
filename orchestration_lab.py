@@ -14,6 +14,8 @@ Modes:
 
 from __future__ import annotations
 
+import importlib
+import sys
 import traceback
 
 import streamlit as st
@@ -22,6 +24,14 @@ from dotenv import load_dotenv
 from src import config
 
 load_dotenv()
+
+
+def _reload(module_name: str):
+    """Force-reload an src module so Streamlit picks up edits during exercises."""
+    if module_name in sys.modules:
+        importlib.reload(sys.modules[module_name])
+    return importlib.import_module(module_name)
+
 
 st.set_page_config(page_title="Orchestration Lab", page_icon="🤖")
 
@@ -118,8 +128,8 @@ def _safe_call(fn, *args, **kwargs) -> dict:
 #  AGENT mode
 # ═════════════════════════════════════════════════════════════════════════════
 def _handle_agent(prompt: str) -> dict:
-    from src.agent import run_agent
-    answer = run_agent(prompt)
+    mod = _reload("src.agent")
+    answer = mod.run_agent(prompt)
     return {"answer": answer, "sources": [], "extra": None}
 
 
@@ -127,13 +137,13 @@ def _handle_agent(prompt: str) -> dict:
 #  GRAPH mode
 # ═════════════════════════════════════════════════════════════════════════════
 def _handle_graph(prompt: str) -> dict:
-    from src.graph import build_graph, OnboardingState
+    mod = _reload("src.graph")
 
-    graph = build_graph()
+    graph = mod.build_graph()
 
     if st.session_state.graph_state is None:
         # First message — start the flow from welcome
-        initial_state: OnboardingState = {
+        initial_state = {
             "joinee": st.session_state.get("joinee_name", "Alex"),
             "role": st.session_state.get("joinee_role", "backend"),
             "stage": "welcome",
@@ -178,11 +188,8 @@ def _handle_graph(prompt: str) -> dict:
 #  MCP mode
 # ═════════════════════════════════════════════════════════════════════════════
 def _handle_mcp(prompt: str) -> dict:
-    from src.mcp_server import create_mcp_server
-    import src.mcp_server as mcp_mod
-
-    # Create the server to verify it works
-    server = create_mcp_server()
+    mcp_mod = _reload("src.mcp_server")
+    server = mcp_mod.create_mcp_server()
 
     # Parse the prompt to figure out which tool to call
     lower = prompt.lower().strip()
@@ -223,11 +230,11 @@ def _handle_mcp(prompt: str) -> dict:
 # ═════════════════════════════════════════════════════════════════════════════
 def _handle_langsmith(prompt: str) -> dict:
     lower = prompt.lower().strip()
+    ls_mod = _reload("src.langsmith_utils")
 
     # "config" / "status" → run ensure_langsmith_configured
     if any(kw in lower for kw in ("config", "status", "check", "verify", "setup")):
-        from src.langsmith_utils import ensure_langsmith_configured
-        status = ensure_langsmith_configured()
+        status = ls_mod.ensure_langsmith_configured()
         lines = [
             "**LangSmith Configuration:**",
             f"- Tracing enabled: {'✅' if status['tracing_enabled'] else '❌'} `{status['tracing_enabled']}`",
@@ -240,23 +247,20 @@ def _handle_langsmith(prompt: str) -> dict:
 
     # "client" → test get_langsmith_client
     if "client" in lower:
-        from src.langsmith_utils import get_langsmith_client
-        client = get_langsmith_client()
+        client = ls_mod.get_langsmith_client()
         return {"answer": f"✅ LangSmith client created: `{type(client).__name__}`", "sources": [], "extra": None}
 
     # "format" → test traced_format_context with sample data
     if "format" in lower:
-        from src.langsmith_utils import traced_format_context
         sample = [
             {"text": "Setup: clone the repo and run pip install.", "source": "setup.md", "score": 0.95},
             {"text": "Auth uses JWT with refresh tokens.", "source": "auth.md", "score": 0.82},
         ]
-        formatted = traced_format_context(sample)
+        formatted = ls_mod.traced_format_context(sample)
         return {"answer": f"**`traced_format_context()`**\n\n```\n{formatted}\n```", "sources": [], "extra": None}
 
     # Default: treat as a traced_retrieval query
-    from src.langsmith_utils import traced_retrieval
-    hits = traced_retrieval(prompt, k=4)
+    hits = ls_mod.traced_retrieval(prompt, k=4)
     if not hits:
         return {"answer": "No results — make sure the vector index is built (`python -m src.ingest`).", "sources": [], "extra": None}
 
