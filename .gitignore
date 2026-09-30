@@ -223,3 +223,6 @@ __marimo__/
 
 # Lab search history (runtime data)
 .search_history.json
+
+# Agent harness notebook — sandbox the agent writes into
+agent-harness/agent_workspace/

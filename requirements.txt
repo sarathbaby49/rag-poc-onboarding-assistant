@@ -13,3 +13,9 @@ python-dotenv>=1.0.0
 
 # LangGraph (Layer 4 stub — installed now so the graph stub imports cleanly)
 langgraph>=0.2.0
+
+# Agent harness notebook (agent-harness/) — Claude Agent SDK, routed through the LiteLLM gateway
+claude-agent-sdk>=0.2.0   # bundles the Claude Code CLI, so no Node.js needed
+pandas>=2.0               # audit-log table
+ipykernel>=6.29           # run the notebook in VS Code / JupyterLab
+notebook>=7.0             # `jupyter notebook` in the browser
