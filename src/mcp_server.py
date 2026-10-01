@@ -21,15 +21,17 @@ Self-check:  python -m checks.check_mcp
 from __future__ import annotations
 
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from src import config
-from src.retrieve import semantic_search
 
-# ── Repo root for sandboxing file reads ──────────────────────────────────────
-REPO_ROOT = config.DATA_DIR
+@lru_cache(maxsize=1)
+def _repo_root() -> Path:
+    """Lazily load REPO_ROOT to keep server startup fast."""
+    from src import config
+    return config.DATA_DIR
 
 
 # --- MCP1: Create the MCP server and expose tools ----------------------------
@@ -118,4 +120,4 @@ if __name__ == "__main__":
     server = create_mcp_server()
     # MCP2 is optional — if you've done it, call add_resources(server) here
     # add_resources(server)
-    server.run()
+    server.run(transport="streamable-http")

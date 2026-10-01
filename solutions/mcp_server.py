@@ -8,19 +8,26 @@ parts into src/mcp_server.py.
 from __future__ import annotations
 
 import subprocess
+from functools import lru_cache
 from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
-from src import config
-from src.retrieve import semantic_search
 
-REPO_ROOT = config.DATA_DIR
+@lru_cache(maxsize=1)
+def _repo_root() -> Path:
+    from src import config
+    return config.DATA_DIR
 
 
 # --- MCP1: Create the server and tools ----------------------------------------
 
-mcp = FastMCP("onboarding-assistant")
+mcp = FastMCP(
+    "onboarding-assistant",
+    host="127.0.0.1",
+    port=8080,
+    stateless_http=True,
+)
 
 
 @mcp.tool()
@@ -30,6 +37,8 @@ def search_docs(query: str) -> str:
     Uses semantic search over the onboarding corpus (docs, code, Jira, Slack).
     Returns the top matches with source and relevance score.
     """
+    from src.retrieve import semantic_search
+
     hits = semantic_search(query, k=4)
     if not hits:
         return "No relevant results found."
@@ -44,8 +53,9 @@ def read_file(path: str) -> str:
 
     The path is sandboxed to the repository root for security.
     """
-    resolved = (REPO_ROOT / path).resolve()
-    if not str(resolved).startswith(str(REPO_ROOT)):
+    root = _repo_root()
+    resolved = (root / path).resolve()
+    if not str(resolved).startswith(str(root)):
         return "Error: path is outside the repository."
     try:
         return resolved.read_text(encoding="utf-8")
@@ -60,15 +70,16 @@ def git_blame(path: str, line: int) -> str:
     Shows who last modified the line and when, useful for finding the right
     person to ask about a piece of code.
     """
-    resolved = (REPO_ROOT / path).resolve()
-    if not str(resolved).startswith(str(REPO_ROOT)):
+    root = _repo_root()
+    resolved = (root / path).resolve()
+    if not str(resolved).startswith(str(root)):
         return "Error: path is outside the repository."
     try:
         result = subprocess.run(
             ["git", "blame", "-L", f"{line},{line}", "--", str(resolved)],
             capture_output=True,
             text=True,
-            cwd=str(REPO_ROOT),
+            cwd=str(root),
             timeout=10,
         )
         return result.stdout.strip() or result.stderr.strip() or "No blame output."
@@ -135,4 +146,4 @@ def create_mcp_server() -> FastMCP:
 
 
 if __name__ == "__main__":
-    mcp.run()
+    mcp.run(transport="streamable-http")
