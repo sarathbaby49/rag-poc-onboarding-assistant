@@ -101,7 +101,9 @@ def answer(question: str, k: int = config.TOP_K) -> dict:
     Self-check:  python -m checks.check_rag   (live check needs the gateway)
     """
     # TODO(G1): implement the four steps above. Reference: solutions/rag.py.
-    raise NotImplementedError("Exercise G1: implement answer — see EXERCISES.md (Part E)")
+    hits = semantic_search(question, k)
+    text = _generate(question, hits)
+    return {"answer": text, "sources": hits}
 
 
 # --- G2: honest "I don't know" ----------------------------------------------
@@ -121,7 +123,12 @@ def answer_or_abstain(question: str, k: int = config.TOP_K, min_score: float = 0
     Self-check:  python -m checks.check_rag   (the abstain path is checkable with NO key)
     """
     # TODO(G2): confidence-gate, then either abstain or generate.
-    raise NotImplementedError("Exercise G2: implement answer_or_abstain — see EXERCISES.md (Part E)")
+    hits = confident_hits(question, k, min_score)  # R3: drops weak matches
+    if not hits:
+        # Nothing cleared the bar — hand off without spending a model call.
+        return {"answer": ABSTAIN_MESSAGE, "sources": []}
+    text = _generate(question, hits)
+    return {"answer": text, "sources": used_sources(text, hits) or hits}
 
 
 # --- G3: trustworthy citations ----------------------------------------------
@@ -145,7 +152,8 @@ def used_sources(answer_text: str, hits: list[dict]) -> list[dict]:
     Self-check:  python -m checks.check_rag
     """
     # TODO(G3): parse the [n] markers and filter hits. One regex + one comprehension.
-    raise NotImplementedError("Exercise G3: implement used_sources — see EXERCISES.md (Part E)")
+    cited = {int(n) for n in re.findall(r"\[(\d+)\]", answer_text)}
+    return [h for i, h in enumerate(hits, start=1) if i in cited]
 
 
 # --- G4: conversational RAG (memory) ----------------------------------------
@@ -184,6 +192,17 @@ def _cli() -> None:
     for i, hit in enumerate(result["sources"], start=1):
         print(f"[{i}] {hit['source']}  (score {hit['score']:.2f})")
 
+
+def _generate(question: str, hits: list[dict]) -> str:
+    """Shared generation step: hand the model the context + question, get text back."""
+    context = format_context(hits)
+    return complete(
+        [
+            {"role": "system", "content": SYSTEM_PROMPT},
+            {"role": "user", "content": f"Context sources:\n\n{context}\n\nQuestion: {question}"},
+        ],
+        max_tokens=config.MAX_TOKENS,
+    )
 
 if __name__ == "__main__":
     _cli()
