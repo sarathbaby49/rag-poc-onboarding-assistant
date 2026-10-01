@@ -43,3 +43,15 @@ MAX_TOKENS = 1024
 
 # Back-compat alias — older stubs referenced ANSWER_MODEL.
 ANSWER_MODEL = LLM_MODEL
+
+# --- LangSmith (Layer 4 — required for observability) -------------------------
+# LangSmith traces every LLM call, tool invocation, and LangGraph step. This is
+# NOT optional — it's how you debug agents and understand what happened during a
+# run. Set these in your .env:
+#   LANGSMITH_TRACING=true
+#   LANGSMITH_API_KEY=lsv2-...
+#   LANGSMITH_PROJECT=onboarding-assistant
+LANGSMITH_TRACING_ENABLED = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY", "")
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "onboarding-assistant")
+LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")

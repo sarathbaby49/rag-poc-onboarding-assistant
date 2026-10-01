@@ -1,26 +1,17 @@
-"""Layer 4 — LangGraph "Onboarding Plan Chatbot" (YOUR EXERCISES: G1 + G2 + G3).
+"""REFERENCE SOLUTION for src/graph.py (Exercises G1 + G2 + G3).
 
-A new hire asks for a 2-week onboarding plan. The graph:
-  1. **plans** — drafts a day-by-day plan
-  2. **retrieves** — grounds each step in real docs (keyword search)
-  3. **checks** — finds gaps (steps with no supporting doc)
-  4. **replans** — fixes gaps or applies mentor feedback  (loop)
-  5. **mentor approval** — pauses for a human mentor to approve / reject
-  6. **publishes** — formats the final plan
+LangGraph "Onboarding Plan Chatbot" — a new hire asks for a 2-week
+onboarding plan. The graph plans, grounds every step in retrieved docs
+(RAG-lite), loops back to re-plan when a step has no supporting doc, then
+pauses for a mentor to approve or reject before publishing.
 
     START → plan → retrieve → check_grounding ─┬─► mentor_approval ─┬─► publish → END
                                                 │                    │
                                                 └─► replan ──────────┘
                                                    (gaps / rejected)
 
-Concepts covered:
-  - StateGraph + TypedDict shared state
-  - Conditional edges (route_after_check, route_after_mentor)
-  - Loops (replan → retrieve → check_grounding → …)
-  - Human-in-the-loop with interrupt() + Command(resume=…)
-  - MemorySaver checkpointer for pause / resume
-
-Self-check:  python -m checks.check_graph
+Try the exercise first! If you're stuck or out of time, copy the relevant
+function into src/graph.py.
 """
 
 from __future__ import annotations
@@ -38,32 +29,31 @@ from langgraph.checkpoint.memory import MemorySaver
 from src import config
 
 # ---------------------------------------------------------------------------
-# Constants (provided)
+# Constants
 # ---------------------------------------------------------------------------
 
-MAX_ATTEMPTS = 3  # Safety valve — prevents infinite replan loops.
+MAX_ATTEMPTS = 3  # Safety valve: prevents infinite replan loops.
 
 DOCS_DIR = Path(config.BASE_DIR) / "data" / "sample_company"
 
-
 # ---------------------------------------------------------------------------
-# State schema (provided)
+# State
 # ---------------------------------------------------------------------------
 
 class PlanState(TypedDict):
-    user_request: str          # the new hire's free-text request
-    role: str                  # e.g. "frontend", "backend"
-    days: int                  # how many working days to plan (default 10)
-    plan: list[dict]           # [{"day": 1, "task": "...", "source": "..." | None}]
-    gaps: list[str]            # tasks with no supporting doc
-    mentor_feedback: str       # free-text from the mentor (empty = none)
-    approved: bool             # True once the mentor approves
-    attempts: int              # how many times we've replanned
-    messages: list[str]        # bot messages shown to the user
+    user_request: str
+    role: str
+    days: int
+    plan: list[dict]          # [{"day": 1, "task": "...", "source": "..." | None}]
+    gaps: list[str]           # tasks with no supporting doc
+    mentor_feedback: str
+    approved: bool
+    attempts: int
+    messages: list[str]       # bot messages shown to the user
 
 
 # ---------------------------------------------------------------------------
-# Helpers (provided)
+# Helpers
 # ---------------------------------------------------------------------------
 
 def _load_docs() -> dict[str, str]:
@@ -77,11 +67,9 @@ def _load_docs() -> dict[str, str]:
 
 
 def _keyword_search(task: str, docs: dict[str, str]) -> str | None:
-    """Return the first doc filename whose content matches keywords from *task*.
-
-    Simple keyword overlap — no vector DB needed.
-    """
+    """Return the first doc filename whose content matches keywords from *task*."""
     words = set(re.findall(r"[a-z]{3,}", task.lower()))
+    # Discard generic stop-words that would match everything
     words -= {"the", "and", "for", "with", "your", "from", "about", "read",
               "learn", "review", "run", "set", "day", "get", "how", "use"}
     best_name, best_score = None, 0
@@ -94,7 +82,7 @@ def _keyword_search(task: str, docs: dict[str, str]) -> str | None:
 
 
 # ---------------------------------------------------------------------------
-# LLM helpers (provided)
+# LLM helpers
 # ---------------------------------------------------------------------------
 
 def _get_llm() -> ChatOpenAI:
@@ -121,7 +109,6 @@ def _parse_request(text: str) -> tuple[str, int]:
 
     Falls back to regex if the LLM is unavailable.
     """
-    # Try LLM-based extraction first
     try:
         raw = _llm_call(
             system=(
@@ -146,7 +133,6 @@ def _parse_request(text: str) -> tuple[str, int]:
     except Exception:
         pass
 
-    # Fallback: regex-based extraction
     role = "backend"
     for r in ("frontend", "fullstack", "full-stack", "data", "backend", "devops", "mobile"):
         if r in text.lower():
@@ -162,7 +148,7 @@ def _parse_request(text: str) -> tuple[str, int]:
 
 
 # ---------------------------------------------------------------------------
-# Default (deterministic) plan template
+# Default (deterministic) planner
 # ---------------------------------------------------------------------------
 
 _TEMPLATE_PLAN = [
@@ -180,7 +166,7 @@ _TEMPLATE_PLAN = [
 
 
 def _make_plan(role: str, days: int) -> list[dict]:
-    """Build a day-by-day plan (deterministic fallback, trim to *days*)."""
+    """Build a day-by-day onboarding plan (deterministic fallback)."""
     tasks = _TEMPLATE_PLAN[:days]
     return [{"day": i + 1, "task": t, "source": None} for i, t in enumerate(tasks)]
 
@@ -188,7 +174,8 @@ def _make_plan(role: str, days: int) -> list[dict]:
 def _llm_plan(role: str, days: int, doc_names: list[str]) -> list[dict]:
     """Use the LLM to generate a role-specific onboarding plan.
 
-    Falls back to _make_plan() if LLM response can't be parsed.
+    The prompt asks the LLM to return JSON. Falls back to the deterministic
+    template if parsing fails.
     """
     system = (
         "You are an onboarding planner for Acme Shop, a FastAPI + PostgreSQL + Redis "
@@ -205,6 +192,7 @@ def _llm_plan(role: str, days: int, doc_names: list[str]) -> list[dict]:
     user = f"Role: {role}, Days: {days}"
     try:
         raw = _llm_call(system, user)
+        # Extract JSON array from response (handle markdown fences)
         cleaned = re.sub(r"```(?:json)?\s*", "", raw).strip().rstrip("`")
         tasks = json.loads(cleaned)
         if isinstance(tasks, list) and all("day" in t and "task" in t for t in tasks):
@@ -219,10 +207,10 @@ def _llm_replan(
     gaps: list[str],
     mentor_feedback: str,
     doc_names: list[str],
-) -> list[dict] | None:
+) -> list[dict]:
     """Use the LLM to fix un-grounded steps and apply mentor feedback.
 
-    Returns None if parsing fails (caller should fall back to rule-based).
+    Falls back to rule-based replacement if parsing fails.
     """
     plan_text = "\n".join(f"Day {s['day']}: {s['task']} (source: {s['source'] or 'NONE'})" for s in plan)
     system = (
@@ -249,159 +237,193 @@ def _llm_replan(
             return [{"day": t["day"], "task": t["task"], "source": None} for t in tasks]
     except Exception:
         pass
-    return None
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# G1: Implement node functions
-#
-# Each node is a function(state: PlanState) -> dict (partial state update).
-# LangGraph merges the returned dict into the running state.
-#
-# Self-check:  python -m checks.check_graph   (section G1)
-# ═══════════════════════════════════════════════════════════════════════════
-
-def plan(state: PlanState) -> dict:
-    """EXERCISE G1a — Parse request, use LLM to draft a plan, greet the user.
-
-    Use _parse_request() to get (role, days), then _llm_plan() to generate
-    a role-specific plan via the LLM. It falls back to _make_plan() if the
-    LLM fails.
-
-    Return dict with: role, days, plan, messages (appended).
-    """
-    # TODO(G1a): implement plan node
-    raise NotImplementedError("Exercise G1a: implement plan node — see EXERCISES.md")
-
-
-def retrieve(state: PlanState) -> dict:
-    """EXERCISE G1b — Ground each plan step in a real doc.
-
-    For each step in state["plan"], call _keyword_search(step["task"], docs)
-    and set the step's "source" to the result (filename or None).
-
-    Return dict with: plan (updated with sources).
-    """
-    # TODO(G1b): implement retrieve node
-    raise NotImplementedError("Exercise G1b: implement retrieve node — see EXERCISES.md")
-
-
-def check_grounding(state: PlanState) -> dict:
-    """EXERCISE G1c — Identify un-grounded steps.
-
-    gaps = list of "Day N: task" strings where source is None.
-
-    Return dict with: gaps.
-    """
-    # TODO(G1c): implement check_grounding node
-    raise NotImplementedError("Exercise G1c: implement check_grounding node — see EXERCISES.md")
-
-
-def replan(state: PlanState) -> dict:
-    """EXERCISE G1d — Use LLM to fix gaps and apply mentor feedback.
-
-    Use _llm_replan() to ask the LLM to replace un-grounded steps and
-    apply mentor feedback. If _llm_replan() returns None (LLM failed),
-    fall back to rule-based replacement.
-
-    Rule-based fallback:
-      - "Complete mandatory compliance training" → "Read the CI/CD pipeline overview"
-      - If mentor_feedback mentions a day, update that day's task.
-
-    Clear gaps and mentor_feedback; increment attempts.
-
-    Return dict with: plan, gaps (empty), mentor_feedback (""), attempts.
-    """
-    # TODO(G1d): implement replan node
-    raise NotImplementedError("Exercise G1d: implement replan node — see EXERCISES.md")
-
-
-def mentor_approval(state: PlanState) -> dict:
-    """EXERCISE G1e — Pause for mentor approval using interrupt().
-
-    Call: from langgraph.types import interrupt
-    response = interrupt({"question": "...", "plan": plan_text})
-
-    If response is "approve" → approved=True + success message.
-    Otherwise → approved=False, mentor_feedback=response + re-plan message.
-
-    Return dict with: approved, (optionally mentor_feedback), messages.
-    """
-    # TODO(G1e): implement mentor_approval node
-    raise NotImplementedError("Exercise G1e: implement mentor_approval node — see EXERCISES.md")
-
-
-def publish(state: PlanState) -> dict:
-    """EXERCISE G1f — Format and publish the final plan.
-
-    Build a nice multi-line string with one line per day:
-      Day 1: task  (source)
-    Append it + a congrats message to state["messages"].
-
-    Return dict with: messages (appended).
-    """
-    # TODO(G1f): implement publish node
-    raise NotImplementedError("Exercise G1f: implement publish node — see EXERCISES.md")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# G2: Routing functions
-#
-# These are called by add_conditional_edges to decide the next node.
-#
-# Self-check:  python -m checks.check_graph   (section G2)
-# ═══════════════════════════════════════════════════════════════════════════
-
-def route_after_check(state: PlanState) -> str:
-    """EXERCISE G2a — Route after check_grounding.
-
-    - If gaps exist AND attempts < MAX_ATTEMPTS → "replan"
-    - Otherwise → "mentor_approval"
-    """
-    # TODO(G2a): implement route_after_check
-    raise NotImplementedError("Exercise G2a: implement route_after_check — see EXERCISES.md")
-
-
-def route_after_mentor(state: PlanState) -> str:
-    """EXERCISE G2b — Route after mentor_approval.
-
-    - If approved → "publish"
-    - Otherwise → "replan"
-    """
-    # TODO(G2b): implement route_after_mentor
-    raise NotImplementedError("Exercise G2b: implement route_after_mentor — see EXERCISES.md")
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# G3: Assemble the graph
-#
-# Self-check:  python -m checks.check_graph   (section G3)
-# ═══════════════════════════════════════════════════════════════════════════
-
-def build_graph(checkpointer=None):
-    """EXERCISE G3 — Wire the nodes and edges, compile with a checkpointer.
-
-    Nodes: plan, retrieve, check_grounding, replan, mentor_approval, publish
-
-    Edges:
-      START → plan → retrieve → check_grounding
-      check_grounding → (conditional: route_after_check)
-        "replan"           → replan
-        "mentor_approval"  → mentor_approval
-      replan → retrieve   (loop back)
-      mentor_approval → (conditional: route_after_mentor)
-        "publish" → publish
-        "replan"  → replan
-      publish → END
-
-    Compile with: checkpointer (MemorySaver if None provided).
-    """
-    # TODO(G3): build and return the compiled graph
-    raise NotImplementedError("Exercise G3: build the graph — see EXERCISES.md")
+    return None  # signal fallback to rule-based
 
 
 # ---------------------------------------------------------------------------
-# Helpers for the Streamlit UI (provided)
+# G1  Node functions
+# ---------------------------------------------------------------------------
+
+def plan(state: PlanState) -> dict:
+    """Parse the request, use LLM to draft a role-specific plan, greet the user."""
+    role, days = _parse_request(state["user_request"])
+    doc_names = list(_load_docs().keys())
+    draft = _llm_plan(role, days, doc_names)
+    return {
+        "role": role,
+        "days": days,
+        "plan": draft,
+        "messages": state["messages"] + [
+            f"👋 Welcome! I'll build a {days}-day onboarding plan for a **{role}** developer. Give me a moment…"
+        ],
+    }
+
+
+def retrieve(state: PlanState) -> dict:
+    """Ground each plan step: find a matching doc or leave source as None."""
+    docs = _load_docs()
+    updated = []
+    for step in state["plan"]:
+        source = _keyword_search(step["task"], docs)
+        updated.append({**step, "source": source})
+    return {"plan": updated}
+
+
+def check_grounding(state: PlanState) -> dict:
+    """Identify un-grounded steps (source is None)."""
+    gaps = [
+        f"Day {s['day']}: {s['task']}"
+        for s in state["plan"]
+        if s["source"] is None
+    ]
+    return {"gaps": gaps}
+
+
+def replan(state: PlanState) -> dict:
+    """Use LLM to replace un-grounded steps and apply mentor feedback.
+
+    Falls back to rule-based replacement if the LLM call fails.
+    """
+    docs = _load_docs()
+    doc_names = list(docs.keys())
+    feedback = state.get("mentor_feedback", "")
+
+    # Try LLM-based replan
+    llm_result = _llm_replan(state["plan"], state["gaps"], feedback, doc_names)
+
+    if llm_result is not None:
+        new_plan = llm_result
+    else:
+        # Fallback: rule-based replacement
+        _REPLACEMENTS: dict[str, str] = {
+            "complete mandatory compliance training": "Read the CI/CD pipeline overview",
+        }
+        new_plan = []
+        for step in state["plan"]:
+            task_lower = step["task"].lower()
+            if step["source"] is None:
+                replacement = _REPLACEMENTS.get(task_lower, f"Review {doc_names[0] if doc_names else 'docs'}")
+                new_plan.append({**step, "task": replacement, "source": None})
+            else:
+                new_plan.append(step)
+
+        if feedback:
+            day_match = re.search(r"day\s*(\d+)", feedback, re.IGNORECASE)
+            if day_match:
+                target_day = int(day_match.group(1))
+                action = feedback.strip()
+                for i, step in enumerate(new_plan):
+                    if step["day"] == target_day:
+                        new_plan[i] = {**step, "task": action, "source": None}
+                        break
+                else:
+                    new_plan.append({"day": target_day, "task": action, "source": None})
+                    new_plan.sort(key=lambda s: s["day"])
+
+    return {
+        "plan": new_plan,
+        "gaps": [],
+        "mentor_feedback": "",
+        "attempts": state["attempts"] + 1,
+    }
+
+
+def mentor_approval(state: PlanState) -> dict:
+    """Pause for mentor approval using LangGraph interrupt."""
+    from langgraph.types import interrupt
+
+    plan_text = "\n".join(
+        f"  Day {s['day']}: {s['task']}  ({s['source'] or '?'})"
+        for s in state["plan"]
+    )
+    mentor_response = interrupt({
+        "question": "Please review and approve this onboarding plan, or give feedback.",
+        "plan": plan_text,
+    })
+
+    if isinstance(mentor_response, str) and mentor_response.strip().lower() == "approve":
+        return {
+            "approved": True,
+            "messages": state["messages"] + [
+                "✅ Mentor **approved** the plan!"
+            ],
+        }
+    else:
+        return {
+            "approved": False,
+            "mentor_feedback": str(mentor_response),
+            "messages": state["messages"] + [
+                f"📝 Mentor feedback: _{mentor_response}_ — re-planning…"
+            ],
+        }
+
+
+def publish(state: PlanState) -> dict:
+    """Format and publish the final approved plan."""
+    lines = [f"📋 **Your {state['days']}-day onboarding plan:**\n"]
+    for s in state["plan"]:
+        src = s["source"] or "—"
+        lines.append(f"- **Day {s['day']}:** {s['task']}  _({src})_")
+    lines.append("\n🎉 You're all set — good luck!")
+    return {
+        "messages": state["messages"] + ["\n".join(lines)],
+    }
+
+
+# ---------------------------------------------------------------------------
+# G2  Routing functions
+# ---------------------------------------------------------------------------
+
+def route_after_check(state: PlanState) -> str:
+    """Route after check_grounding: replan if gaps remain, else mentor."""
+    if state["gaps"] and state["attempts"] < MAX_ATTEMPTS:
+        return "replan"
+    return "mentor_approval"
+
+
+def route_after_mentor(state: PlanState) -> str:
+    """Route after mentor_approval: publish if approved, else replan."""
+    if state["approved"]:
+        return "publish"
+    return "replan"
+
+
+# ---------------------------------------------------------------------------
+# G3  Build the graph
+# ---------------------------------------------------------------------------
+
+def build_graph(checkpointer=None):
+    """Assemble the onboarding-plan chatbot graph."""
+    g = StateGraph(PlanState)
+
+    g.add_node("plan", plan)
+    g.add_node("retrieve", retrieve)
+    g.add_node("check_grounding", check_grounding)
+    g.add_node("replan", replan)
+    g.add_node("mentor_approval", mentor_approval)
+    g.add_node("publish", publish)
+
+    g.add_edge(START, "plan")
+    g.add_edge("plan", "retrieve")
+    g.add_edge("retrieve", "check_grounding")
+    g.add_conditional_edges("check_grounding", route_after_check, {
+        "replan": "replan",
+        "mentor_approval": "mentor_approval",
+    })
+    g.add_edge("replan", "retrieve")
+    g.add_conditional_edges("mentor_approval", route_after_mentor, {
+        "publish": "publish",
+        "replan": "replan",
+    })
+    g.add_edge("publish", END)
+
+    if checkpointer is None:
+        checkpointer = MemorySaver()
+    return g.compile(checkpointer=checkpointer)
+
+
+# ---------------------------------------------------------------------------
+# Helpers for UI / CLI
 # ---------------------------------------------------------------------------
 
 def run_graph_turn(
@@ -412,7 +434,8 @@ def run_graph_turn(
 ) -> tuple[dict, list[str], bool]:
     """Run one turn of the plan chatbot.
 
-    Returns (state_dict, new_bot_messages, is_waiting_for_mentor).
+    Returns (new_graph_state_dict, new_bot_messages, is_waiting_for_mentor).
+    graph_state_dict holds the opaque state needed to resume.
     """
     from langgraph.types import Command
 
@@ -441,14 +464,17 @@ def run_graph_turn(
             Command(resume=user_message), config, stream_mode="updates",
         ))
     else:
+        # Graph already finished
         return graph_state, ["The plan has already been published! Clear the conversation to start over."], False
 
+    # Collect the final state snapshot
     snapshot = graph.get_state(config)
     final_state = dict(snapshot.values) if snapshot.values else {}
 
     all_msgs = final_state.get("messages", [])
     new_msgs = all_msgs[len(prev_msgs):]
 
+    # Check if interrupted (waiting for mentor)
     waiting = bool(snapshot.next)
 
     if waiting and not any("sent it to your mentor" in m for m in new_msgs):
@@ -473,7 +499,7 @@ def run_graph_turn(
 # ---------------------------------------------------------------------------
 
 def _cli() -> None:
-    """Interactive terminal chatbot."""
+    """Interactive terminal chatbot — matches the sample-run in the spec."""
     from langgraph.types import Command
 
     checkpointer = MemorySaver()
@@ -485,14 +511,23 @@ def _cli() -> None:
         request = "Hi, I'm joining Monday as a mid-level frontend dev. Can you plan my first 2 weeks?"
 
     initial = PlanState(
-        user_request=request, role="", days=10, plan=[], gaps=[],
-        mentor_feedback="", approved=False, attempts=0, messages=[],
+        user_request=request,
+        role="",
+        days=10,
+        plan=[],
+        gaps=[],
+        mentor_feedback="",
+        approved=False,
+        attempts=0,
+        messages=[],
     )
 
     prev_messages: list[str] = []
 
+    # Stream until interrupt
     for event in graph.stream(initial, config, stream_mode="updates"):
         for node_name, updates in event.items():
+            # Trace line
             if node_name == "check_grounding":
                 gaps = updates.get("gaps", [])
                 dest = "replan" if gaps else "mentor_approval"
@@ -504,16 +539,20 @@ def _cli() -> None:
                 print(f"\033[2m[{node_name}] {no_source} step(s) have no source\033[0m")
             else:
                 print(f"\033[2m[{node_name}]\033[0m")
+
+            # Print new bot messages
             for msg in updates.get("messages", [])[len(prev_messages):] if "messages" in updates else []:
                 print(f"BOT: {msg}")
             if "messages" in updates:
                 prev_messages = updates["messages"]
 
+    # Mentor loop
     while True:
         snapshot = graph.get_state(config)
         if not snapshot.next:
             break
         state = snapshot.values
+        # Show plan
         print("\n--- Plan for mentor review ---")
         for s in state.get("plan", []):
             print(f"  Day {s['day']}: {s['task']}  ({s['source'] or '?'})")
@@ -523,7 +562,8 @@ def _cli() -> None:
             for node_name, updates in event.items():
                 if node_name == "check_grounding":
                     gaps = updates.get("gaps", [])
-                    print(f"\033[2m[{node_name}] gaps={gaps}\033[0m")
+                    dest = "replan" if gaps else "mentor_approval"
+                    print(f"\033[2m[{node_name}] gaps={gaps} -> {dest}\033[0m")
                 elif node_name == "replan":
                     print(f"\033[2m[{node_name}] attempts={updates.get('attempts', '?')}\033[0m")
                 elif node_name == "retrieve":
@@ -531,6 +571,7 @@ def _cli() -> None:
                     print(f"\033[2m[{node_name}] {no_source} step(s) have no source\033[0m")
                 else:
                     print(f"\033[2m[{node_name}]\033[0m")
+
                 for msg in updates.get("messages", [])[len(prev_messages):] if "messages" in updates else []:
                     print(f"BOT: {msg}")
                 if "messages" in updates:
