@@ -143,104 +143,144 @@ python -m src.agent "Where is the payment provider code and who last changed it?
 
 ---
 
-## LangGraph Flow
+## LangGraph Flow — Onboarding Plan Chatbot
 
-### G1 (core 🟡) — Implement graph node functions · ⏱️ ~10 min
+A new hire asks for a 2-week onboarding plan. The graph drafts it, grounds
+every step in real docs (keyword-based RAG), loops back to re-plan when a
+step has no supporting doc, then pauses for a mentor to approve or reject.
 
-**File:** `src/graph.py` → `welcome()`, `setup_help()`, `mentor_checkpoint()`, `architecture_tour()`
-**Goal:** implement the four nodes of the onboarding state machine. Each node
-receives the current `OnboardingState` and returns a partial update dict.
+```
+START → plan → retrieve → check_grounding ─┬─► mentor_approval ─┬─► publish → END
+                                            │                    │
+                                            └─► replan ──────────┘
+                                               (gaps / rejected)
+```
 
-**Key idea:** LangGraph nodes are plain functions. They take state in, return
-partial updates out. LangGraph merges the update into the running state.
+### G1 (core 🟡) — Implement node functions · ⏱️ ~15 min
+
+**File:** `src/graph.py` — six nodes, each receives `PlanState`, returns a
+partial update dict.
+
+**Helpers already provided:** `_parse_request()`, `_make_plan()`,
+`_keyword_search()`, `_load_docs()`, `_TEMPLATE_PLAN`, `_llm_plan()`,
+`_llm_replan()`, `_llm_call()`, `_get_llm()`.
+
+| Node | What it does | Key return fields |
+|------|-------------|-------------------|
+| **G1a `plan`** | Parse role/days, **LLM-generate** a role-specific plan, greet user | `role`, `days`, `plan`, `messages` |
+| **G1b `retrieve`** | For each step, keyword-search docs and set `source` | `plan` (updated) |
+| **G1c `check_grounding`** | List steps where `source is None` | `gaps` |
+| **G1d `replan`** | **LLM-fix** un-grounded steps + apply mentor feedback; increment `attempts` | `plan`, `gaps` (empty), `mentor_feedback` (""), `attempts` |
+| **G1e `mentor_approval`** | Call `interrupt()` → "approve" or feedback | `approved`, `mentor_feedback`, `messages` |
+| **G1f `publish`** | Format the final plan as a nice message | `messages` |
 
 **Definition of done** (`python -m checks.check_graph`, section G1):
 
-- `welcome` sets `stage="setup"` and adds "welcome" to `completed_steps`
-- `setup_help` adds an answer message; sets `needs_mentor=True` if the user's
-  message contains "error", "fail", "stuck", "broken", etc.
-- `mentor_checkpoint` clears `needs_mentor`, advances to `stage="architecture"`
-- `architecture_tour` sets `stage="first_ticket"`
+- `plan` parses role, sets days, creates a non-empty plan, appends a welcome message
+- `retrieve` finds sources for most steps; the "compliance training" step stays `None`
+- `check_grounding` finds the compliance-training gap
+- `replan` increments attempts and clears gaps
+- `publish` produces a message with day information
 
-**Hints:**
+**Hints — `plan`** (uses LLM via `_llm_plan`, falls back to `_make_plan`):
 
 ```python
-def welcome(state: OnboardingState) -> dict:
-    name = state["joinee"]
+def plan(state: PlanState) -> dict:
+    role, days = _parse_request(state["user_request"])
+    doc_names = list(_load_docs().keys())
+    draft = _llm_plan(role, days, doc_names)   # LLM-generated, role-specific
     return {
-        "stage": "setup",
-        "messages": state["messages"] + [{"role": "assistant", "content": f"Welcome, {name}!"}],
-        "completed_steps": state["completed_steps"] + ["welcome"],
+        "role": role, "days": days, "plan": draft,
+        "messages": state["messages"] + [f"👋 Welcome! Building a {days}-day plan for a {role} dev…"],
     }
 ```
 
-### G2 (core 🟢) — Routing function · ⏱️ ~3 min
+**Hints — `replan`** (uses LLM via `_llm_replan`, falls back to rule-based):
 
-**File:** `src/graph.py` → `route_after_setup()`
-**Goal:** decide whether to go to the mentor checkpoint or skip to architecture.
+```python
+def replan(state: PlanState) -> dict:
+    doc_names = list(_load_docs().keys())
+    llm_result = _llm_replan(state["plan"], state["gaps"], state.get("mentor_feedback", ""), doc_names)
+    new_plan = llm_result if llm_result is not None else ...  # rule-based fallback
+    return {"plan": new_plan, "gaps": [], "mentor_feedback": "", "attempts": state["attempts"] + 1}
+```
 
-**Definition of done** (`python -m checks.check_graph`, section G2):
+**Hints — `mentor_approval`:**
 
-- Returns `"checkpoint"` when `needs_mentor` is True
-- Returns `"architecture"` when `needs_mentor` is False
+```python
+from langgraph.types import interrupt
+response = interrupt({"question": "Review this plan", "plan": plan_text})
+if response.strip().lower() == "approve":
+    return {"approved": True, "messages": state["messages"] + ["✅ Approved!"]}
+return {"approved": False, "mentor_feedback": response, "messages": state["messages"] + [f"📝 Feedback: {response}"]}
+```
 
-**Hint:** one line — `return "checkpoint" if state["needs_mentor"] else "architecture"`
+### G2 (core 🟢) — Routing functions · ⏱️ ~3 min
+
+**File:** `src/graph.py` → `route_after_check()`, `route_after_mentor()`
+
+| Router | Logic |
+|--------|-------|
+| `route_after_check` | gaps AND attempts < MAX_ATTEMPTS → `"replan"`, else → `"mentor_approval"` |
+| `route_after_mentor` | approved → `"publish"`, else → `"replan"` |
+
+**Hint:** each is 1-2 lines.
 
 ### G3 (core 🟡) — Assemble the graph · ⏱️ ~8 min
 
-**File:** `src/graph.py` → `build_graph()`
-**Goal:** wire the nodes and edges into a `StateGraph`, compile it, and return.
+**File:** `src/graph.py` → `build_graph(checkpointer=None)`
 
 **What you'll use:**
 
-- `from langgraph.graph import StateGraph, END`
-- `StateGraph(OnboardingState)` — creates the graph
-- `g.add_node(name, function)` — adds a node
-- `g.set_entry_point(name)` — sets the start node
-- `g.add_edge(from, to)` — adds a fixed edge
-- `g.add_conditional_edges(from, routing_fn)` — adds a conditional edge
-- `g.compile(interrupt_before=[...])` — compiles the graph
+- `from langgraph.graph import StateGraph, START, END`
+- `g.add_node(name, function)`
+- `g.add_edge(from, to)`
+- `g.add_conditional_edges(from, routing_fn, mapping)`
+- `g.compile(checkpointer=...)`
 
 **Definition of done** (`python -m checks.check_graph`, section G3):
 
-- `build_graph()` returns a compiled graph with `.invoke()`
-- The happy path (no mentor needed) reaches `stage="first_ticket"`
-- `welcome` and `architecture` appear in `completed_steps`
-
-**The graph shape:**
-
-```
-welcome ──► setup ──┬──► architecture ──► END
-                    │
-                    └──► checkpoint ──► architecture
-                    (only if needs_mentor=True)
-```
+- `build_graph()` returns a compiled graph with all 6 nodes.
 
 **Hints:**
 
 ```python
-from langgraph.graph import StateGraph, END
+g = StateGraph(PlanState)
+g.add_node("plan", plan)
+g.add_node("retrieve", retrieve)
+g.add_node("check_grounding", check_grounding)
+g.add_node("replan", replan)
+g.add_node("mentor_approval", mentor_approval)
+g.add_node("publish", publish)
 
-g = StateGraph(OnboardingState)
-g.add_node("welcome", welcome)
-g.add_node("setup", setup_help)
-g.add_node("checkpoint", mentor_checkpoint)
-g.add_node("architecture", architecture_tour)
+g.add_edge(START, "plan")
+g.add_edge("plan", "retrieve")
+g.add_edge("retrieve", "check_grounding")
+g.add_conditional_edges("check_grounding", route_after_check, {
+    "replan": "replan",
+    "mentor_approval": "mentor_approval",
+})
+g.add_edge("replan", "retrieve")
+g.add_conditional_edges("mentor_approval", route_after_mentor, {
+    "publish": "publish",
+    "replan": "replan",
+})
+g.add_edge("publish", END)
 
-g.set_entry_point("welcome")
-g.add_edge("welcome", "setup")
-g.add_conditional_edges("setup", route_after_setup)
-g.add_edge("checkpoint", "architecture")
-g.add_edge("architecture", END)
-
-return g.compile(interrupt_before=["checkpoint"])
+if checkpointer is None:
+    checkpointer = MemorySaver()
+return g.compile(checkpointer=checkpointer)
 ```
 
-**Try it:**
+**Try it in the CLI:**
 
 ```bash
-python -m src.graph Alex backend
+python -m src.graph
 ```
+
+**Or in the orchestration lab** (graph mode) — type a request like
+"I'm a frontend dev, plan my first 2 weeks". When the mentor prompt appears,
+type "approve" or give feedback like "add a pairing session on Day 3".
 
 ---
 

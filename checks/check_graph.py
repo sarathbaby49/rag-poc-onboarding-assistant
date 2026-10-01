@@ -1,8 +1,5 @@
 """Self-check for the LangGraph exercises (G1 nodes, G2 routing, G3 graph).
 
-No LLM call needed — the graph nodes use canned responses in the reference
-solution, so this checks structure and flow.
-
 Run from the repo root:  python -m checks.check_graph
 """
 
@@ -19,129 +16,150 @@ def _check(label: str, cond: bool) -> bool:
 def main() -> None:
     results: list[bool] = []
 
-    # --- G1: Node functions exist and return dicts ----------------------------
+    # --- G1: Node functions ---------------------------------------------------
     print("-- G1: Node functions --")
     try:
-        from src.graph import welcome, setup_help, mentor_checkpoint, architecture_tour, OnboardingState
+        from src.graph import (
+            plan, retrieve, check_grounding, replan, publish,
+            PlanState, MAX_ATTEMPTS, _load_docs,
+        )
 
-        base_state: OnboardingState = {
-            "joinee": "TestUser",
-            "role": "backend",
-            "stage": "welcome",
+        base: PlanState = {
+            "user_request": "I'm a mid-level frontend dev, plan my first 2 weeks",
+            "role": "",
+            "days": 10,
+            "plan": [],
+            "gaps": [],
+            "mentor_feedback": "",
+            "approved": False,
+            "attempts": 0,
             "messages": [],
-            "needs_mentor": False,
-            "mentor_notes": "",
-            "completed_steps": [],
         }
 
-        # welcome
+        # plan
         try:
-            w = welcome(base_state)
-            results.append(_check("welcome returns a dict", isinstance(w, dict)))
-            results.append(_check(
-                "welcome sets stage to 'setup'",
-                w.get("stage") == "setup",
-            ))
-            results.append(_check(
-                "welcome adds to completed_steps",
-                "welcome" in w.get("completed_steps", []),
-            ))
-            results.append(_check(
-                "welcome adds a message",
-                len(w.get("messages", [])) > len(base_state["messages"]),
-            ))
+            r = plan(base)
+            results.append(_check("plan returns a dict", isinstance(r, dict)))
+            results.append(_check("plan sets role", bool(r.get("role"))))
+            results.append(_check("plan sets days > 0", r.get("days", 0) > 0))
+            results.append(_check("plan creates a non-empty plan", len(r.get("plan", [])) > 0))
+            results.append(_check("plan appends a welcome message", len(r.get("messages", [])) > 0))
         except NotImplementedError:
-            results.append(_check("welcome implemented", False))
+            results.append(_check("plan implemented", False))
             print("   ↳ still a TODO — see EXERCISES.md (G1a)")
 
-        # setup_help (happy path — no stuck keywords)
+        # retrieve (needs plan output)
         try:
-            setup_state = {**base_state, "stage": "setup", "messages": [
-                {"role": "user", "content": "How do I set up my local env?"}
-            ]}
-            s = setup_help(setup_state)
-            results.append(_check("setup_help returns a dict", isinstance(s, dict)))
+            plan_out = plan(base)
+            r = retrieve({**base, **plan_out})
+            results.append(_check("retrieve returns a dict with 'plan'", "plan" in r))
+            sources = [s.get("source") for s in r.get("plan", [])]
             results.append(_check(
-                "setup_help adds a message",
-                len(s.get("messages", [])) > len(setup_state["messages"]),
-            ))
-            results.append(_check(
-                "setup_help does NOT flag mentor for normal question",
-                s.get("needs_mentor") is False or s.get("needs_mentor") is None,
+                "retrieve finds at least some sources",
+                any(s is not None for s in sources),
             ))
         except NotImplementedError:
-            results.append(_check("setup_help implemented", False))
+            results.append(_check("retrieve implemented", False))
             print("   ↳ still a TODO — see EXERCISES.md (G1b)")
 
-        # setup_help (stuck path)
+        # check_grounding
         try:
-            stuck_state = {**base_state, "stage": "setup", "messages": [
-                {"role": "user", "content": "I'm getting an error when I run pip install, it's broken!"}
-            ]}
-            s2 = setup_help(stuck_state)
+            plan_out = plan(base)
+            ret_out = retrieve({**base, **plan_out})
+            r = check_grounding({**base, **plan_out, **ret_out})
+            results.append(_check("check_grounding returns gaps list", isinstance(r.get("gaps"), list)))
             results.append(_check(
-                "setup_help flags needs_mentor when user is stuck",
-                s2.get("needs_mentor") is True,
+                "check_grounding finds the 'compliance training' gap",
+                any("compliance" in g.lower() or "training" in g.lower() for g in r.get("gaps", [])),
             ))
         except NotImplementedError:
-            pass  # already counted above
-
-        # mentor_checkpoint
-        try:
-            ck_state = {**base_state, "stage": "setup", "needs_mentor": True, "mentor_notes": "Looks good!"}
-            c = mentor_checkpoint(ck_state)
-            results.append(_check("mentor_checkpoint returns a dict", isinstance(c, dict)))
-            results.append(_check(
-                "mentor_checkpoint clears needs_mentor",
-                c.get("needs_mentor") is False,
-            ))
-            results.append(_check(
-                "mentor_checkpoint advances stage to 'architecture'",
-                c.get("stage") == "architecture",
-            ))
-        except NotImplementedError:
-            results.append(_check("mentor_checkpoint implemented", False))
+            results.append(_check("check_grounding implemented", False))
             print("   ↳ still a TODO — see EXERCISES.md (G1c)")
 
-        # architecture_tour
+        # replan
         try:
-            arch_state = {**base_state, "stage": "architecture"}
-            a = architecture_tour(arch_state)
-            results.append(_check("architecture_tour returns a dict", isinstance(a, dict)))
+            plan_out = plan(base)
+            ret_out = retrieve({**base, **plan_out})
+            chk_out = check_grounding({**base, **plan_out, **ret_out})
+            state_before_replan = {**base, **plan_out, **ret_out, **chk_out}
+            r = replan(state_before_replan)
+            results.append(_check("replan returns a dict", isinstance(r, dict)))
+            results.append(_check("replan increments attempts", r.get("attempts", 0) == 1))
+            results.append(_check("replan clears gaps", r.get("gaps") == []))
+        except NotImplementedError:
+            results.append(_check("replan implemented", False))
+            print("   ↳ still a TODO — see EXERCISES.md (G1d)")
+
+        # mentor_approval is tested structurally (interrupt is hard to test in isolation)
+        try:
+            from src.graph import mentor_approval
+            # Just check it exists and is callable
+            results.append(_check("mentor_approval exists and is callable", callable(mentor_approval) or hasattr(mentor_approval, "__call__")))
+        except (NotImplementedError, ImportError):
+            results.append(_check("mentor_approval implemented", False))
+            print("   ↳ still a TODO — see EXERCISES.md (G1e)")
+
+        # publish
+        try:
+            final_plan = [
+                {"day": 1, "task": "Read README", "source": "README.md"},
+                {"day": 2, "task": "Setup", "source": "setup.md"},
+            ]
+            pub_state = {**base, "plan": final_plan, "days": 2}
+            r = publish(pub_state)
+            results.append(_check("publish returns messages", len(r.get("messages", [])) > 0))
             results.append(_check(
-                "architecture_tour sets stage to 'first_ticket'",
-                a.get("stage") == "first_ticket",
+                "publish includes day info",
+                any("Day" in m or "day" in m for m in r.get("messages", [])),
             ))
         except NotImplementedError:
-            results.append(_check("architecture_tour implemented", False))
-            print("   ↳ still a TODO — see EXERCISES.md (G1d)")
+            results.append(_check("publish implemented", False))
+            print("   ↳ still a TODO — see EXERCISES.md (G1f)")
 
     except ImportError as e:
         results.append(_check(f"imports work ({e})", False))
 
-    # --- G2: Routing function -------------------------------------------------
-    print("\n-- G2: route_after_setup --")
+    # --- G2: Routing ----------------------------------------------------------
+    print("\n-- G2: Routing functions --")
     try:
-        from src.graph import route_after_setup
+        from src.graph import route_after_check, route_after_mentor, MAX_ATTEMPTS
 
-        mentor_state = {**base_state, "needs_mentor": True}
-        ok_state = {**base_state, "needs_mentor": False}
+        # route_after_check
+        try:
+            results.append(_check(
+                "route_after_check → 'replan' when gaps + attempts < MAX",
+                route_after_check({**base, "gaps": ["Day 4: Deploy"], "attempts": 0}) == "replan",
+            ))
+            results.append(_check(
+                "route_after_check → 'mentor_approval' when no gaps",
+                route_after_check({**base, "gaps": [], "attempts": 0}) == "mentor_approval",
+            ))
+            results.append(_check(
+                "route_after_check → 'mentor_approval' when attempts >= MAX",
+                route_after_check({**base, "gaps": ["x"], "attempts": MAX_ATTEMPTS}) == "mentor_approval",
+            ))
+        except NotImplementedError:
+            results.append(_check("route_after_check implemented", False))
+            print("   ↳ still a TODO — see EXERCISES.md (G2a)")
 
-        results.append(_check(
-            "routes to 'checkpoint' when needs_mentor=True",
-            route_after_setup(mentor_state) == "checkpoint",
-        ))
-        results.append(_check(
-            "routes to 'architecture' when needs_mentor=False",
-            route_after_setup(ok_state) == "architecture",
-        ))
-    except NotImplementedError:
-        results.append(_check("route_after_setup implemented", False))
-        print("   ↳ still a TODO — see EXERCISES.md (G2)")
-    except Exception as e:
-        results.append(_check(f"route_after_setup runs without error ({type(e).__name__}: {e})", False))
+        # route_after_mentor
+        try:
+            results.append(_check(
+                "route_after_mentor → 'publish' when approved",
+                route_after_mentor({**base, "approved": True}) == "publish",
+            ))
+            results.append(_check(
+                "route_after_mentor → 'replan' when not approved",
+                route_after_mentor({**base, "approved": False}) == "replan",
+            ))
+        except NotImplementedError:
+            results.append(_check("route_after_mentor implemented", False))
+            print("   ↳ still a TODO — see EXERCISES.md (G2b)")
 
-    # --- G3: Build and run the graph ------------------------------------------
+    except ImportError as e:
+        results.append(_check(f"routing imports ({e})", False))
+
+    # --- G3: Build the graph --------------------------------------------------
     print("\n-- G3: build_graph --")
     try:
         from src.graph import build_graph
@@ -149,33 +167,19 @@ def main() -> None:
         graph = build_graph()
         results.append(_check("build_graph returns a compiled graph", hasattr(graph, "invoke")))
 
-        # Run the happy path (no mentor needed)
-        happy_state: OnboardingState = {
-            "joinee": "TestUser",
-            "role": "backend",
-            "stage": "welcome",
-            "messages": [{"role": "user", "content": "How do I get started?"}],
-            "needs_mentor": False,
-            "mentor_notes": "",
-            "completed_steps": [],
-        }
-        result = graph.invoke(happy_state)
-        results.append(_check(
-            "happy path reaches 'first_ticket' stage",
-            result.get("stage") == "first_ticket",
-        ))
-        results.append(_check(
-            "happy path completes welcome + architecture",
-            "welcome" in result.get("completed_steps", [])
-            and "architecture" in result.get("completed_steps", []),
-        ))
+        # Check the graph has the expected nodes
+        graph_obj = graph.get_graph()
+        node_ids = set(graph_obj.nodes.keys())
+        for expected in ("plan", "retrieve", "check_grounding", "replan", "mentor_approval", "publish"):
+            results.append(_check(f"graph has '{expected}' node", expected in node_ids))
 
     except NotImplementedError:
         results.append(_check("build_graph implemented", False))
         print("   ↳ still a TODO — see EXERCISES.md (G3)")
     except Exception as e:
-        results.append(_check(f"build_graph runs without error ({type(e).__name__}: {e})", False))
+        results.append(_check(f"build_graph error ({type(e).__name__}: {e})", False))
 
+    # --- Summary --------------------------------------------------------------
     passed = sum(bool(r) for r in results)
     print(f"\n{passed}/{len(results)} checks passed.")
     sys.exit(0 if results and passed == len(results) else 1)

@@ -51,7 +51,7 @@ st.caption("Test your Layer 4 exercises — agents, graphs, MCP, and LangSmith."
 # ── Modes ────────────────────────────────────────────────────────────────────
 MODES = {
     "Agent · run_agent": ("agent", "ask the setup-troubleshooting agent a question"),
-    "Graph · onboarding flow": ("graph", "walk through the LangGraph onboarding flow"),
+    "Graph · onboarding plan": ("graph", "plan → ground → replan → mentor approve → publish"),
     "MCP · tool calls": ("mcp", "call MCP server tools (search_docs, read_file, git_blame)"),
     "LangSmith · tracing": ("langsmith", "test @traceable wrappers + check config"),
 }
@@ -74,11 +74,9 @@ with st.sidebar:
 
     if mode == "graph":
         st.divider()
-        st.text_input("Joinee name", value="Alex", key="joinee_name")
-        st.selectbox("Role", ["backend", "frontend", "fullstack", "data"], key="joinee_role")
         st.caption(
-            "The graph walks through: welcome → setup → architecture. "
-            "Type a message with 'error' or 'stuck' to trigger the mentor path."
+            "The graph plans an onboarding schedule, grounds each step in "
+            "real docs, loops to fix gaps, then pauses for mentor approval."
         )
 
 
@@ -94,6 +92,7 @@ if "last_mode" not in st.session_state:
 if st.session_state.last_mode != mode:
     st.session_state.history = []
     st.session_state.graph_state = None
+    st.session_state.pop("graph_checkpointer", None)
     st.session_state.last_mode = mode
 
 
@@ -136,52 +135,44 @@ def _handle_agent(prompt: str) -> dict:
 # ═════════════════════════════════════════════════════════════════════════════
 #  GRAPH mode
 # ═════════════════════════════════════════════════════════════════════════════
-def _handle_graph(prompt: str) -> dict:
+def _run_graph(prompt: str) -> dict:
+    """Run one graph turn and return result dict with 'answer', 'extra', 'waiting'."""
     mod = _reload("src.graph")
 
-    graph = mod.build_graph()
+    # Keep one MemorySaver per session so the checkpoint survives across turns
+    if "graph_checkpointer" not in st.session_state:
+        from langgraph.checkpoint.memory import MemorySaver
+        st.session_state.graph_checkpointer = MemorySaver()
 
-    if st.session_state.graph_state is None:
-        # First message — start the flow from welcome
-        initial_state = {
-            "joinee": st.session_state.get("joinee_name", "Alex"),
-            "role": st.session_state.get("joinee_role", "backend"),
-            "stage": "welcome",
-            "messages": [{"role": "user", "content": prompt}] if prompt else [],
-            "needs_mentor": False,
-            "mentor_notes": "Reviewed and approved.",
-            "completed_steps": [],
-        }
-        result = graph.invoke(initial_state)
+    prev_state = st.session_state.graph_state
+
+    state, new_msgs, waiting = mod.run_graph_turn(
+        user_message=prompt,
+        graph_state=prev_state,
+        thread_id="streamlit",
+        checkpointer=st.session_state.graph_checkpointer,
+    )
+
+    st.session_state.graph_state = state
+
+    answer = "\n\n---\n\n".join(new_msgs) if new_msgs else "(no response from the graph)"
+
+    # Status line
+    attempts = state.get("attempts", 0)
+    gaps = state.get("gaps", [])
+    approved = state.get("approved", False)
+    if waiting:
+        extra = f"⏸️ **Waiting for mentor approval** · Attempts: {attempts}"
+    elif approved:
+        extra = f"✅ **Plan published** · Attempts: {attempts}"
     else:
-        # Continue — feed the new user message into setup
-        state = dict(st.session_state.graph_state)
-        state["messages"] = state["messages"] + [{"role": "user", "content": prompt}]
-        # Re-enter at setup stage so the graph processes the new message
-        if state.get("stage") == "setup":
-            result = graph.invoke(state)
-        else:
-            # Flow already completed — just echo
-            return {
-                "answer": "🎉 The onboarding flow is complete! Click **Clear conversation** to restart.",
-                "sources": [],
-                "extra": None,
-            }
+        extra = f"Attempts: {attempts} · Gaps: {len(gaps)}"
 
-    st.session_state.graph_state = result
+    return {"answer": answer, "sources": [], "extra": extra, "waiting": waiting}
 
-    # Collect the new assistant messages
-    new_msgs = [m for m in result.get("messages", []) if m.get("role") == "assistant"]
-    answer_parts = [m["content"] for m in new_msgs]
-    answer = "\n\n---\n\n".join(answer_parts) if answer_parts else "(no response from the graph)"
 
-    stage = result.get("stage", "?")
-    completed = result.get("completed_steps", [])
-    extra = f"**Stage:** {stage} · **Completed:** {' → '.join(completed) if completed else '—'}"
-    if result.get("needs_mentor"):
-        extra += " · ⚠️ Needs mentor review"
-
-    return {"answer": answer, "sources": [], "extra": extra}
+def _handle_graph(prompt: str) -> dict:
+    return _run_graph(prompt)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -281,23 +272,23 @@ HANDLERS = {
 
 PLACEHOLDERS = {
     "agent": "e.g. Where is the payment provider code and who last changed it?",
-    "graph": "e.g. How do I set up my local environment?  (try 'I got an error' to trigger mentor)",
+    "graph": "e.g. I'm a mid-level frontend dev, plan my first 2 weeks  |  approve  |  add pairing on Day 3",
     "mcp": "e.g. payment providers  |  read src/config.py  |  blame src/config.py 1",
     "langsmith": "e.g. config  |  client  |  format  |  payment providers (traced search)",
 }
 
 # ── Chat UI ──────────────────────────────────────────────────────────────────
 
-# Auto-start the graph flow on first visit
+# Graph mode — show intro prompt if no history yet
 if mode == "graph" and not st.session_state.history and st.session_state.graph_state is None:
-    result = _safe_call(_handle_graph, "")
-    if "Not implemented" not in result["answer"] and "Error" not in result["answer"]:
-        st.session_state.history.append({"role": "assistant", "content": result["answer"]})
-        if result.get("extra"):
-            st.session_state.history[-1]["extra"] = result["extra"]
-    else:
-        # Show the error as the first message
-        st.session_state.history.append({"role": "assistant", "content": result["answer"]})
+    st.session_state.history.append({
+        "role": "assistant",
+        "content": (
+            "👋 **Onboarding Plan Chatbot** — tell me your role and how many "
+            "days/weeks to plan, and I'll build a grounded onboarding schedule.\n\n"
+            "_Example: \"I'm a mid-level frontend dev, plan my first 2 weeks\"_"
+        ),
+    })
 
 # Replay conversation
 for turn in st.session_state.history:
@@ -306,20 +297,76 @@ for turn in st.session_state.history:
         if turn.get("extra"):
             st.caption(turn["extra"])
 
-if prompt := st.chat_input(PLACEHOLDERS.get(mode, "Ask something…")):
-    st.session_state.history.append({"role": "user", "content": prompt})
-    with st.chat_message("user"):
-        st.markdown(prompt)
+# ---------- Graph: mentor approval buttons ----------
+_graph_waiting = (
+    mode == "graph"
+    and st.session_state.graph_state is not None
+    and st.session_state.graph_state.get("_waiting_for_mentor", False)
+)
 
-    with st.chat_message("assistant"):
-        with st.spinner("Working…"):
-            result = _safe_call(HANDLERS[mode], prompt)
+if _graph_waiting:
+    st.divider()
+    st.markdown("**🧑‍🏫 Mentor Review (Sarath)**")
+    col_approve, col_reject = st.columns([1, 3])
+    with col_approve:
+        approve_clicked = st.button("✅ Approve", type="primary", use_container_width=True)
+    with col_reject:
+        feedback_text = st.text_input(
+            "Or give feedback:",
+            placeholder="e.g. add a pairing session on Day 3",
+            key="mentor_feedback_input",
+            label_visibility="collapsed",
+        )
+        reject_clicked = st.button("📝 Send feedback", use_container_width=True, disabled=not feedback_text)
 
-        st.markdown(result["answer"])
+    if approve_clicked:
+        st.session_state.history.append({"role": "user", "content": "✅ Mentor: approve"})
+        with st.chat_message("assistant"):
+            with st.spinner("Mentor approved — publishing…"):
+                result = _safe_call(_run_graph, "approve")
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+        entry = {"role": "assistant", "content": result["answer"]}
         if result.get("extra"):
-            st.caption(result["extra"])
+            entry["extra"] = result["extra"]
+        st.session_state.history.append(entry)
+        st.rerun()
 
-    entry = {"role": "assistant", "content": result["answer"]}
-    if result.get("extra"):
-        entry["extra"] = result["extra"]
-    st.session_state.history.append(entry)
+    if reject_clicked and feedback_text:
+        st.session_state.history.append({"role": "user", "content": f"📝 Mentor: {feedback_text}"})
+        with st.chat_message("assistant"):
+            with st.spinner("Applying feedback — re-planning…"):
+                result = _safe_call(_run_graph, feedback_text)
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+        entry = {"role": "assistant", "content": result["answer"]}
+        if result.get("extra"):
+            entry["extra"] = result["extra"]
+        st.session_state.history.append(entry)
+        st.rerun()
+
+# ---------- Normal chat input (hidden while waiting for mentor in graph mode) ----------
+if not _graph_waiting:
+    if prompt := st.chat_input(PLACEHOLDERS.get(mode, "Ask something…")):
+        st.session_state.history.append({"role": "user", "content": prompt})
+        with st.chat_message("user"):
+            st.markdown(prompt)
+
+        with st.chat_message("assistant"):
+            with st.spinner("Working…"):
+                result = _safe_call(HANDLERS[mode], prompt)
+
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+
+        entry = {"role": "assistant", "content": result["answer"]}
+        if result.get("extra"):
+            entry["extra"] = result["extra"]
+        st.session_state.history.append(entry)
+
+        # If this was a graph turn that's now waiting, rerun to show buttons
+        if mode == "graph" and result.get("waiting"):
+            st.rerun()
