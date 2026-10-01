@@ -25,4 +25,4 @@ langgraph>=0.2.0
 langsmith>=0.1.0
 
 # MCP (Layer 4 — Model Context Protocol server for IDE integration)
-mcp>=1.0.0
+mcp>=1.0.0,<2.0.0

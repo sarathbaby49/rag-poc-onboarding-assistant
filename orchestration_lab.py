@@ -87,6 +87,8 @@ if "graph_state" not in st.session_state:
     st.session_state.graph_state = None
 if "last_mode" not in st.session_state:
     st.session_state.last_mode = mode
+if "mcp_tool" not in st.session_state:
+    st.session_state.mcp_tool = "🔍 search_docs"
 
 # Clear history when switching modes
 if st.session_state.last_mode != mode:
@@ -176,44 +178,46 @@ def _handle_graph(prompt: str) -> dict:
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-#  MCP mode
+#  MCP mode — each tool gets its own tab with dedicated inputs
 # ═════════════════════════════════════════════════════════════════════════════
-def _handle_mcp(prompt: str) -> dict:
+def _handle_mcp_search(query: str) -> dict:
     mcp_mod = _reload("src.mcp_server")
-    server = mcp_mod.create_mcp_server()
-
-    # Parse the prompt to figure out which tool to call
-    lower = prompt.lower().strip()
-
-    if lower.startswith("read ") or lower.startswith("read_file "):
-        path = prompt.split(maxsplit=1)[1].strip() if " " in prompt else ""
-        if hasattr(mcp_mod, "read_file"):
-            result = mcp_mod.read_file(path)
-        else:
-            from pathlib import Path
-            resolved = (config.BASE_DIR / path).resolve()
-            result = resolved.read_text() if resolved.exists() else f"File not found: {path}"
-        return {"answer": f"**`read_file(\"{path}\")`**\n\n```\n{result[:3000]}\n```", "sources": [], "extra": None}
-
-    if lower.startswith("blame ") or lower.startswith("git_blame "):
-        parts = prompt.split()
-        path = parts[1] if len(parts) > 1 else ""
-        line = int(parts[2]) if len(parts) > 2 and parts[2].isdigit() else 1
-        if hasattr(mcp_mod, "git_blame"):
-            result = mcp_mod.git_blame(path, line)
-        else:
-            result = "(git_blame not found on mcp_server module)"
-        return {"answer": f"**`git_blame(\"{path}\", {line})`**\n\n```\n{result}\n```", "sources": [], "extra": None}
-
-    # Default: treat as search_docs query
+    mcp_mod.create_mcp_server()
     if hasattr(mcp_mod, "search_docs"):
-        result = mcp_mod.search_docs(prompt)
+        result = mcp_mod.search_docs(query)
     else:
         from src.retrieve import semantic_search
-        hits = semantic_search(prompt, k=4)
-        result = "\n\n".join(f"📄 {h['source']} (score: {h['score']:.2f}):\n{h['text']}" for h in hits) if hits else "No results."
+        hits = semantic_search(query, k=4)
+        result = "\n\n".join(
+            f"📄 {h['source']} (score: {h['score']:.2f}):\n{h['text']}" for h in hits
+        ) if hits else "No results."
+    return {"answer": f"**`search_docs(\"{query}\")`**\n\n{result}", "sources": [], "extra": None}
 
-    return {"answer": f"**`search_docs(\"{prompt}\")`**\n\n{result}", "sources": [], "extra": None}
+
+def _handle_mcp_read(path: str) -> dict:
+    mcp_mod = _reload("src.mcp_server")
+    mcp_mod.create_mcp_server()
+    if hasattr(mcp_mod, "read_file"):
+        result = mcp_mod.read_file(path)
+    else:
+        resolved = (config.BASE_DIR / path).resolve()
+        result = resolved.read_text() if resolved.exists() else f"File not found: {path}"
+    return {"answer": f"**`read_file(\"{path}\")`**\n\n```\n{result[:3000]}\n```", "sources": [], "extra": None}
+
+
+def _handle_mcp_blame(path: str, line: int) -> dict:
+    mcp_mod = _reload("src.mcp_server")
+    mcp_mod.create_mcp_server()
+    if hasattr(mcp_mod, "git_blame"):
+        result = mcp_mod.git_blame(path, line)
+    else:
+        result = "(git_blame not found on mcp_server module)"
+    return {"answer": f"**`git_blame(\"{path}\", {line})`**\n\n```\n{result}\n```", "sources": [], "extra": None}
+
+
+def _handle_mcp(prompt: str) -> dict:
+    """Fallback — not used directly; the tabbed UI calls the specific handlers."""
+    return _handle_mcp_search(prompt)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -290,83 +294,147 @@ if mode == "graph" and not st.session_state.history and st.session_state.graph_s
         ),
     })
 
-# Replay conversation
-for turn in st.session_state.history:
-    with st.chat_message(turn["role"]):
-        st.markdown(turn["content"])
-        if turn.get("extra"):
-            st.caption(turn["extra"])
+# ---------- MCP mode — tabbed tool interface ----------
+if mode == "mcp":
+    st.markdown("Pick a tool tab, fill in the inputs, and hit **Run**.")
 
-# ---------- Graph: mentor approval buttons ----------
-_graph_waiting = (
-    mode == "graph"
-    and st.session_state.graph_state is not None
-    and st.session_state.graph_state.get("_waiting_for_mentor", False)
-)
+    tab_search, tab_read, tab_blame = st.tabs([
+        "🔍 search_docs",
+        "📄 read_file",
+        "👤 git_blame",
+    ])
 
-if _graph_waiting:
-    st.divider()
-    st.markdown("**🧑‍🏫 Mentor Review (Sarath)**")
-    col_approve, col_reject = st.columns([1, 3])
-    with col_approve:
-        approve_clicked = st.button("✅ Approve", type="primary", use_container_width=True)
-    with col_reject:
-        feedback_text = st.text_input(
-            "Or give feedback:",
-            placeholder="e.g. add a pairing session on Day 3",
-            key="mentor_feedback_input",
-            label_visibility="collapsed",
+    with tab_search:
+        st.caption("Semantic search over onboarding docs, code, Jira, and Slack.")
+        search_query = st.text_input(
+            "Query",
+            placeholder="e.g. what payment providers do we use?",
+            key="mcp_search_query",
         )
-        reject_clicked = st.button("📝 Send feedback", use_container_width=True, disabled=not feedback_text)
-
-    if approve_clicked:
-        st.session_state.history.append({"role": "user", "content": "✅ Mentor: approve"})
-        with st.chat_message("assistant"):
-            with st.spinner("Mentor approved — publishing…"):
-                result = _safe_call(_run_graph, "approve")
-            st.markdown(result["answer"])
-            if result.get("extra"):
-                st.caption(result["extra"])
-        entry = {"role": "assistant", "content": result["answer"]}
-        if result.get("extra"):
-            entry["extra"] = result["extra"]
-        st.session_state.history.append(entry)
-        st.rerun()
-
-    if reject_clicked and feedback_text:
-        st.session_state.history.append({"role": "user", "content": f"📝 Mentor: {feedback_text}"})
-        with st.chat_message("assistant"):
-            with st.spinner("Applying feedback — re-planning…"):
-                result = _safe_call(_run_graph, feedback_text)
-            st.markdown(result["answer"])
-            if result.get("extra"):
-                st.caption(result["extra"])
-        entry = {"role": "assistant", "content": result["answer"]}
-        if result.get("extra"):
-            entry["extra"] = result["extra"]
-        st.session_state.history.append(entry)
-        st.rerun()
-
-# ---------- Normal chat input (hidden while waiting for mentor in graph mode) ----------
-if not _graph_waiting:
-    if prompt := st.chat_input(PLACEHOLDERS.get(mode, "Ask something…")):
-        st.session_state.history.append({"role": "user", "content": prompt})
-        with st.chat_message("user"):
-            st.markdown(prompt)
-
-        with st.chat_message("assistant"):
-            with st.spinner("Working…"):
-                result = _safe_call(HANDLERS[mode], prompt)
-
+        if st.button("Run search_docs", key="mcp_search_btn", type="primary", disabled=not search_query):
+            with st.spinner("Searching…"):
+                result = _safe_call(_handle_mcp_search, search_query)
             st.markdown(result["answer"])
             if result.get("extra"):
                 st.caption(result["extra"])
 
-        entry = {"role": "assistant", "content": result["answer"]}
-        if result.get("extra"):
-            entry["extra"] = result["extra"]
-        st.session_state.history.append(entry)
+    with tab_read:
+        st.caption("Read a file by its repo-relative path (sandboxed to repo root).")
+        read_path = st.text_input(
+            "File path (repo-relative)",
+            placeholder="e.g. code/payment_providers.py",
+            key="mcp_read_path",
+        )
+        if st.button("Run read_file", key="mcp_read_btn", type="primary", disabled=not read_path):
+            with st.spinner("Reading…"):
+                result = _safe_call(_handle_mcp_read, read_path)
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
 
-        # If this was a graph turn that's now waiting, rerun to show buttons
-        if mode == "graph" and result.get("waiting"):
+    with tab_blame:
+        st.caption("Run `git blame` on a specific line to find who last changed it.")
+        col_path, col_line = st.columns([3, 1])
+        with col_path:
+            blame_path = st.text_input(
+                "File path (repo-relative)",
+                placeholder="e.g. code/payment_providers.py",
+                key="mcp_blame_path",
+            )
+        with col_line:
+            blame_line = st.number_input(
+                "Line number",
+                min_value=1,
+                value=1,
+                step=1,
+                key="mcp_blame_line",
+            )
+        if st.button("Run git_blame", key="mcp_blame_btn", type="primary", disabled=not blame_path):
+            with st.spinner("Blaming…"):
+                result = _safe_call(_handle_mcp_blame, blame_path, blame_line)
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+
+# ---------- All other modes — chat-based UI ----------
+else:
+    # Replay conversation
+    for turn in st.session_state.history:
+        with st.chat_message(turn["role"]):
+            st.markdown(turn["content"])
+            if turn.get("extra"):
+                st.caption(turn["extra"])
+
+    # ---------- Graph: mentor approval buttons ----------
+    _graph_waiting = (
+        mode == "graph"
+        and st.session_state.graph_state is not None
+        and st.session_state.graph_state.get("_waiting_for_mentor", False)
+    )
+
+    if _graph_waiting:
+        st.divider()
+        st.markdown("**🧑‍🏫 Mentor Review (Sarath)**")
+        col_approve, col_reject = st.columns([1, 3])
+        with col_approve:
+            approve_clicked = st.button("✅ Approve", type="primary", use_container_width=True)
+        with col_reject:
+            feedback_text = st.text_input(
+                "Or give feedback:",
+                placeholder="e.g. add a pairing session on Day 3",
+                key="mentor_feedback_input",
+                label_visibility="collapsed",
+            )
+            reject_clicked = st.button("📝 Send feedback", use_container_width=True, disabled=not feedback_text)
+
+        if approve_clicked:
+            st.session_state.history.append({"role": "user", "content": "✅ Mentor: approve"})
+            with st.chat_message("assistant"):
+                with st.spinner("Mentor approved — publishing…"):
+                    result = _safe_call(_run_graph, "approve")
+                st.markdown(result["answer"])
+                if result.get("extra"):
+                    st.caption(result["extra"])
+            entry = {"role": "assistant", "content": result["answer"]}
+            if result.get("extra"):
+                entry["extra"] = result["extra"]
+            st.session_state.history.append(entry)
             st.rerun()
+
+        if reject_clicked and feedback_text:
+            st.session_state.history.append({"role": "user", "content": f"📝 Mentor: {feedback_text}"})
+            with st.chat_message("assistant"):
+                with st.spinner("Applying feedback — re-planning…"):
+                    result = _safe_call(_run_graph, feedback_text)
+                st.markdown(result["answer"])
+                if result.get("extra"):
+                    st.caption(result["extra"])
+            entry = {"role": "assistant", "content": result["answer"]}
+            if result.get("extra"):
+                entry["extra"] = result["extra"]
+            st.session_state.history.append(entry)
+            st.rerun()
+
+    # ---------- Normal chat input (hidden while waiting for mentor in graph mode) ----------
+    if not _graph_waiting:
+        if prompt := st.chat_input(PLACEHOLDERS.get(mode, "Ask something…")):
+            st.session_state.history.append({"role": "user", "content": prompt})
+            with st.chat_message("user"):
+                st.markdown(prompt)
+
+            with st.chat_message("assistant"):
+                with st.spinner("Working…"):
+                    result = _safe_call(HANDLERS[mode], prompt)
+
+                st.markdown(result["answer"])
+                if result.get("extra"):
+                    st.caption(result["extra"])
+
+            entry = {"role": "assistant", "content": result["answer"]}
+            if result.get("extra"):
+                entry["extra"] = result["extra"]
+            st.session_state.history.append(entry)
+
+            # If this was a graph turn that's now waiting, rerun to show buttons
+            if mode == "graph" and result.get("waiting"):
+                st.rerun()

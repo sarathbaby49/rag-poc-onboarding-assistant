@@ -29,7 +29,7 @@ from src import config
 from src.retrieve import semantic_search
 
 # ── Repo root for sandboxing file reads ──────────────────────────────────────
-REPO_ROOT = config.BASE_DIR
+REPO_ROOT = config.DATA_DIR
 
 
 # --- MCP1: Create the MCP server and expose tools ----------------------------

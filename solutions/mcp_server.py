@@ -15,7 +15,7 @@ from mcp.server.fastmcp import FastMCP
 from src import config
 from src.retrieve import semantic_search
 
-REPO_ROOT = config.BASE_DIR
+REPO_ROOT = config.DATA_DIR
 
 
 # --- MCP1: Create the server and tools ----------------------------------------
