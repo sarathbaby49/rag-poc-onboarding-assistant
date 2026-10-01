@@ -356,6 +356,70 @@ if mode == "mcp":
             if result.get("extra"):
                 st.caption(result["extra"])
 
+# ---------- LangSmith mode — tabbed function-test interface ----------
+elif mode == "langsmith":
+    st.markdown("Pick a tab to test each LangSmith exercise function, then hit **Run**.")
+
+    tab_config, tab_client, tab_retrieval, tab_format = st.tabs([
+        "🔍 LS1a · Config check",
+        "🔗 LS1b · Client",
+        "📡 LS2a · Traced retrieval",
+        "📝 LS2b · Traced format",
+    ])
+
+    with tab_config:
+        st.caption(
+            "**Exercise LS1a** — Verify that LangSmith tracing is properly configured. "
+            "Checks `LANGCHAIN_TRACING_V2`, `LANGCHAIN_API_KEY`, and `LANGCHAIN_PROJECT` env vars."
+        )
+        if st.button("Run ensure_langsmith_configured()", key="ls_config_btn", type="primary"):
+            with st.spinner("Checking configuration…"):
+                result = _safe_call(_handle_langsmith, "config")
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+
+    with tab_client:
+        st.caption(
+            "**Exercise LS1b** — Create a LangSmith `Client` instance. "
+            "The client auto-reads `LANGCHAIN_API_KEY` from the environment."
+        )
+        if st.button("Run get_langsmith_client()", key="ls_client_btn", type="primary"):
+            with st.spinner("Creating client…"):
+                result = _safe_call(_handle_langsmith, "client")
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+
+    with tab_retrieval:
+        st.caption(
+            "**Exercise LS2a** — Semantic search wrapped with `@traceable` so it appears "
+            "in the LangSmith trace tree. Enter a query to test `traced_retrieval()`."
+        )
+        ls_query = st.text_input(
+            "Query",
+            placeholder="e.g. what payment providers do we use?",
+            key="ls_retrieval_query",
+        )
+        if st.button("Run traced_retrieval()", key="ls_retrieval_btn", type="primary", disabled=not ls_query):
+            with st.spinner("Running traced retrieval…"):
+                result = _safe_call(_handle_langsmith, ls_query)
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+
+    with tab_format:
+        st.caption(
+            "**Exercise LS2b** — Format retrieved chunks with `@traceable` so context "
+            "assembly is visible in the trace tree. Uses sample data to test `traced_format_context()`."
+        )
+        if st.button("Run traced_format_context()", key="ls_format_btn", type="primary"):
+            with st.spinner("Running traced format…"):
+                result = _safe_call(_handle_langsmith, "format")
+            st.markdown(result["answer"])
+            if result.get("extra"):
+                st.caption(result["extra"])
+
 # ---------- All other modes — chat-based UI ----------
 else:
     # Replay conversation
