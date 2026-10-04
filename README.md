@@ -48,6 +48,14 @@ onboarding graph interactively, test MCP tools, and verify LangSmith config:
 streamlit run orchestration_lab.py
 ```
 
+Working the **model selection & cost** exercises (C1–C4)? The **Cost Lab**
+compares models side by side, tests your router and per-step graph models,
+shows prompt-cache hits, and keeps a running (projected) bill:
+
+```bash
+streamlit run cost_lab.py
+```
+
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
 > gateway** — no direct Claude/OpenAI key, just the proxy URL + key in `.env`
@@ -71,7 +79,8 @@ streamlit run orchestration_lab.py
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
 | 📝 **Exercise** | **Generation** — grounded, cited answer (G1), abstain (G2), citations (G3), memory (G4) | `src/rag.py`, `app.py` |
 |  📝 **Exercise** | **Agents & Orchestration** (LangChain, LangGraph, LangSmith, MCP)         | `[layer4-agents-and-orchestration/](layer4-agents-and-orchestration/)` |
-| 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `models.py`, `eval/` |
+| 📝 **Exercise** | **Model Selection & Cost** — cost meter (C1), router (C2), model per graph step (C3), prompt caching (C4) | [`layer5-model-selection-and-cost/`](layer5-model-selection-and-cost/) |
+| 🔒 Later layers | Evaluation | `eval/` |
 
 - **✅ Works** — runs today; don't edit, build against it.
 - **📝 Exercise** — a stub that raises `NotImplementedError`; you implement it and
@@ -116,12 +125,16 @@ onboarding-assistant-rag/
 ├── retrieval_lab.py          # ✅ Streamlit lab for the R exercises
 ├── rag_app.py                # ✅ Streamlit lab for the G exercises (crash-safe)
 ├── orchestration_lab.py       # ✅ Streamlit lab for agent + graph + MCP + LangSmith exercises
+├── cost_lab.py               # ✅ Streamlit lab for the Layer 5 cost & routing exercises
 ├── app.py                    # 🔒 Streamlit end-user demo (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
 ├── layer4-agents-and-orchestration/  # 📦 separate session
 │   ├── README.md             #   session setup, prerequisites, concepts
 │   └── EXERCISES.md          #   hands-on exercises (A1–3, G1–3, MCP1–2, LS1–2)
+├── layer5-model-selection-and-cost/  # 📦 separate session
+│   ├── README.md             #   prerequisites, files
+│   └── EXERCISES.md          #   hands-on exercises (C1–C4)
 ├── notes/                    # 📓 concept notebooks (Layer 4 presenter walk-through)
 │   ├── langchain.ipynb
 │   ├── langgraph.ipynb
@@ -132,14 +145,20 @@ onboarding-assistant-rag/
 │   ├── check_agent.py        # ← Layer 4
 │   ├── check_graph.py        # ← Layer 4
 │   ├── check_mcp.py          # ← Layer 4
-│   └── check_langsmith.py    # ← Layer 4
+│   ├── check_langsmith.py    # ← Layer 4
+│   ├── check_cost.py         # ← Layer 5
+│   ├── check_routing.py      # ← Layer 5
+│   └── check_caching.py      # ← Layer 5
 ├── solutions/                # reference answers — try first!
 │   ├── retrieve.py
 │   ├── memory.py
 │   ├── agent.py              # ← Layer 4
 │   ├── graph.py              # ← Layer 4
 │   ├── mcp_server.py         # ← Layer 4
-│   └── langsmith_utils.py    # ← Layer 4
+│   ├── langsmith_utils.py    # ← Layer 4
+│   ├── cost.py               # ← Layer 5
+│   ├── models.py             # ← Layer 5
+│   └── caching.py            # ← Layer 5
 └── src/
     ├── config.py             # ✅ all the dials
     ├── ingest.py             # ✅ builds the index
@@ -151,7 +170,10 @@ onboarding-assistant-rag/
     ├── graph.py              # 📝 EXERCISE (G1, G2, G3) — Layer 4
     ├── mcp_server.py         # 📝 EXERCISE (MCP1, MCP2) — Layer 4
     ├── langsmith_utils.py    # 📝 EXERCISE (LS1, LS2) — Layer 4
-    ├── models.py             # 🔒 model routing (later layer)
+    ├── cost.py               # 📝 EXERCISE (C1) — Layer 5
+    ├── models.py             # 📝 EXERCISE (C2, C3) — Layer 5
+    ├── caching.py            # 📝 EXERCISE (C4) — Layer 5
+    ├── cost_helper.py        # ✅ Layer 5 plumbing used by cost_lab.py
     └── eval/                 # 🔒 evaluation layer
 ```
 

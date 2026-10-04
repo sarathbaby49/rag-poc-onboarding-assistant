@@ -1,34 +1,67 @@
-"""Layer 5 — Model selection & routing (STUB / your mission).
+"""Layer 5 — Model selection & routing.  (EXERCISES C2 + C3)
 
 Not every question needs the most expensive model. "What's the repo URL?" can go
-to a cheap fast model; "Why is my migration failing?" needs a strong one.
-Routing simple questions to a cheaper model is one of the biggest cost levers.
+to a cheap, fast model; "Why is my migration failing?" needs a strong one.
+Routing is the single biggest cost lever: on our numbers, sending 60% of
+questions to the cheap tier cuts the monthly bill by more than half.
 
-Model menu (see the pricing table in the Anthropic docs):
-    claude-opus-5    — strongest, most expensive   ($5 / $25 per 1M tok)
-    claude-sonnet-5  — balanced                     ($2 / $10)
-    claude-haiku-4-5 — cheapest, fastest            ($1 / $5)
+The three tiers come from src/config.py (set them in .env):
+    CHEAP_MODEL   claude-haiku-4-5    $1 / $5   per 1M tokens (in / out)
+    MID_MODEL     claude-sonnet-5-5   $2 / $10
+    STRONG_MODEL  claude-opus-5-5     $4 / $20
+(Prices checked 4 Oct 2026 — see src/cost.py for the full table.)
 
-Your mission:
-  1. Implement `pick_model` with a simple heuristic (length, keywords) or a
-     tiny classifier call to a cheap model.
-  2. Wire it into src.rag.answer so the model is chosen per question.
-  3. (Bonus) Measure cost per question before/after to prove the saving.
+C2 — pick_model(question): route one user question to a tier.
+C3 — model_for_step(step, attempts): pick a tier per step of the LangGraph
+     onboarding-plan bot ("Create a 10-day onboarding plan for a new backend
+     engineer"). The Cost Lab wires your function into the graph for you.
 """
 
 from __future__ import annotations
 
 from src import config
 
-CHEAP_MODEL = "claude-haiku-4-5"
-STRONG_MODEL = config.ANSWER_MODEL  # claude-opus-5
+CHEAP_MODEL = config.CHEAP_MODEL
+MID_MODEL = config.MID_MODEL
+STRONG_MODEL = config.STRONG_MODEL
 
 
 def pick_model(question: str) -> str:
-    """Return the model id to use for this question.
+    """EXERCISE C2 — return the model to use for this question.
 
-    TODO: replace this always-strong default with a real routing rule, e.g.
-      - short, factual lookups        -> CHEAP_MODEL
-      - "why", "debug", "error", code -> STRONG_MODEL
+    Right now everything goes to STRONG_MODEL (safe, but the most expensive).
+    Replace it with a simple rule, for example:
+      - debugging / reasoning words ("why", "error", "fail", "fix", "explain",
+        "compare", "debug"), stack traces or code     -> STRONG_MODEL
+      - very long questions (say > 150 characters)     -> STRONG_MODEL
+      - short factual lookups ("what's the repo URL?") -> CHEAP_MODEL
+
+    Self-check: python -m checks.check_routing  (12 labelled questions, need 10+)
+    Bonus: instead of rules, ask CHEAP_MODEL to label the question "easy" or
+    "hard" and route on its answer. Is the extra call worth it?
+    """
+    return STRONG_MODEL
+
+
+# The three steps of the plan bot that call a model:
+#   "parse_request" — pull the role and number of days out of the request (extraction)
+#   "draft_plan"    — write the day-by-day plan (needs judgment)
+#   "replan"        — fix ungrounded steps or apply mentor feedback
+STEPS = ("parse_request", "draft_plan", "replan")
+
+
+def model_for_step(step: str, attempts: int = 0) -> str:
+    """EXERCISE C3 — return the model for one step of the plan graph.
+
+    `attempts` is how many replans have already happened (0 on the first replan).
+
+    Target:
+      - "parse_request" -> CHEAP_MODEL   (simple extraction)
+      - "draft_plan"    -> MID_MODEL     (writing needs judgment)
+      - "replan"        -> MID_MODEL, but escalate to STRONG_MODEL once
+                           attempts >= 2 (cheaper tries already failed)
+
+    The other nodes (retrieve, check_grounding, publish) never call a model,
+    and mentor_approval is a person. Self-check: python -m checks.check_routing
     """
     return STRONG_MODEL

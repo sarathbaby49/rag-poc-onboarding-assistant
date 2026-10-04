@@ -44,6 +44,13 @@ MAX_TOKENS = 1024
 # Back-compat alias — older stubs referenced ANSWER_MODEL.
 ANSWER_MODEL = LLM_MODEL
 
+# --- Model tiers (Layer 5 — model selection & cost) ---------------------------
+# Three tiers behind the same gateway. Routing exercises pick between them.
+# Use the names your proxy exposes (see the curl command above).
+CHEAP_MODEL = os.getenv("CHEAP_MODEL", "litellm_proxy/anthropic/claude-haiku-4-5")
+MID_MODEL = os.getenv("MID_MODEL", "litellm_proxy/anthropic/claude-sonnet-5-5")
+STRONG_MODEL = os.getenv("STRONG_MODEL", "litellm_proxy/anthropic/claude-opus-5-5")
+
 # --- LangSmith (Layer 4 — required for observability) -------------------------
 # LangSmith traces every LLM call, tool invocation, and LangGraph step. This is
 # NOT optional — it's how you debug agents and understand what happened during a
