@@ -22,7 +22,7 @@ from src import config
 
 @lru_cache(maxsize=1)
 def _encoder() -> SentenceTransformer:
-    return SentenceTransformer(config.EMBED_MODEL)
+    return SentenceTransformer(config.EMBED_MODEL, device=config.EMBED_DEVICE)
 
 
 def embed(text: str) -> list[float]:

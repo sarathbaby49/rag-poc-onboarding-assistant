@@ -119,7 +119,7 @@ def call(messages: list[dict], model: str, max_tokens: int = 600) -> dict:
 
 def rag_messages(question: str, k: int = config.TOP_K) -> tuple[list[dict], list[dict]]:
     """A plain grounded-answer prompt (retrieve -> context -> question)."""
-    from src.caching import SYSTEM_PROMPT, format_hits
+    from src.cost import SYSTEM_PROMPT, format_hits
     from src.rag_helper import semantic_search
 
     hits = semantic_search(question, k)
@@ -138,11 +138,11 @@ def _routed_llm_call(system: str, user: str) -> str:
     """Replacement for solutions.graph._llm_call that asks model_for_step (C3)."""
     from langchain_openai import ChatOpenAI
 
-    from src import models
+    from src import cost
 
     step = _STATE["step"] or "draft_plan"
     try:
-        model = models.model_for_step(step, _STATE["attempts"])
+        model = cost.model_for_step(step, _STATE["attempts"])
     except NotImplementedError:
         model = config.STRONG_MODEL
     llm = ChatOpenAI(

@@ -1,7 +1,9 @@
-"""Layer 5 — Token economics: what did that call cost?  (EXERCISE C1)
+"""Layer 5 — Model selection & cost: all four exercises live here (C1–C4).
 
 Every model call is billed in tokens. The gateway tells us how many tokens a
-call used; this module turns that into dollars.
+call used; C1 turns that into dollars, C2/C3 decide which model tier handles
+a question or graph step, and C4 builds a prompt that lets the provider cache
+the unchanging part of it.
 
     cost = input tokens  x input price
          + output tokens x output price
@@ -27,6 +29,19 @@ from whatever the gateway returns):
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from functools import lru_cache
+
+from src import config
+
+CHEAP_MODEL = config.CHEAP_MODEL
+MID_MODEL = config.MID_MODEL
+STRONG_MODEL = config.STRONG_MODEL
+
+
+# ============================================================================
+# C1 — Cost meter
+# ============================================================================
 
 
 @dataclass(frozen=True)
@@ -92,3 +107,138 @@ def cost_of(usage: dict, model: str) -> float:
 def monthly_cost(cost_per_question: float, questions_per_month: int = 100_000) -> float:
     """Scale one question's cost to a month (done for you)."""
     return cost_per_question * questions_per_month
+
+
+# ============================================================================
+# C2 + C3 — Model selection & routing
+#
+# Not every question needs the most expensive model. "What's the repo URL?"
+# can go to a cheap, fast model; "Why is my migration failing?" needs a strong
+# one. Routing is the single biggest cost lever: on our numbers, sending 60%
+# of questions to the cheap tier cuts the monthly bill by more than half.
+#
+# C2 — pick_model(question): route one user question to a tier.
+# C3 — model_for_step(step, attempts): pick a tier per step of the LangGraph
+#      onboarding-plan bot ("Create a 10-day onboarding plan for a new
+#      backend engineer"). The Cost Lab wires your function into the graph
+#      for you.
+# ============================================================================
+
+
+def pick_model(question: str) -> str:
+    """EXERCISE C2 — return the model to use for this question.
+
+    Right now everything goes to STRONG_MODEL (safe, but the most expensive).
+    Replace it with a simple rule, for example:
+      - debugging / reasoning words ("why", "error", "fail", "fix", "explain",
+        "compare", "debug"), stack traces or code     -> STRONG_MODEL
+      - very long questions (say > 150 characters)     -> STRONG_MODEL
+      - short factual lookups ("what's the repo URL?") -> CHEAP_MODEL
+
+    Self-check: python -m checks.check_routing  (12 labelled questions, need 10+)
+    Bonus: instead of rules, ask CHEAP_MODEL to label the question "easy" or
+    "hard" and route on its answer. Is the extra call worth it?
+    """
+    return STRONG_MODEL
+
+
+# The three steps of the plan bot that call a model:
+#   "parse_request" — pull the role and number of days out of the request (extraction)
+#   "draft_plan"    — write the day-by-day plan (needs judgment)
+#   "replan"        — fix ungrounded steps or apply mentor feedback
+STEPS = ("parse_request", "draft_plan", "replan")
+
+
+def model_for_step(step: str, attempts: int = 0) -> str:
+    """EXERCISE C3 — return the model for one step of the plan graph.
+
+    `attempts` is how many replans have already happened (0 on the first replan).
+
+    Target:
+      - "parse_request" -> CHEAP_MODEL   (simple extraction)
+      - "draft_plan"    -> MID_MODEL     (writing needs judgment)
+      - "replan"        -> MID_MODEL, but escalate to STRONG_MODEL once
+                           attempts >= 2 (cheaper tries already failed)
+
+    The other nodes (retrieve, check_grounding, publish) never call a model,
+    and mentor_approval is a person. Self-check: python -m checks.check_routing
+    """
+    return STRONG_MODEL
+
+
+# ============================================================================
+# C4 — Prompt caching: static first, dynamic last
+#
+# The provider can cache the processed START of a prompt. If the next request
+# begins with exactly the same text, those tokens are billed at ~10% of the
+# input price (Anthropic: write 1.25x once, then read 0.1x — see PRICES above).
+#
+# The cache matches from the very first token, so ONE changed character early
+# in the prompt (a timestamp, the user's name, the question) breaks it for
+# everything after. Rule: put what never changes first, what changes every
+# call last.
+#
+# Here the static part is the "team handbook": every doc and code file in
+# data/sample_company (a few thousand tokens). Small corpora like ours can
+# simply ship the whole handbook in a cached prefix.
+# ============================================================================
+
+SYSTEM_PROMPT = (
+    "You are the Acme Shop onboarding assistant. Answer new engineers' questions "
+    "using ONLY the team handbook and any extra context below. Cite the file names "
+    "you used. If the answer isn't there, say you don't know."
+)
+
+
+@lru_cache(maxsize=1)
+def handbook() -> str:
+    """Every doc + code file, in a fixed order (done for you).
+
+    Sorted so the text is byte-identical on every call — a requirement for caching.
+    """
+    root = config.DATA_DIR
+    files = sorted(root.glob("*.md")) + sorted((root / "code").glob("*.py"))
+    parts = [f"=== {p.relative_to(root)} ===\n{p.read_text()}" for p in files]
+    return "\n\n".join(parts)
+
+
+def format_hits(hits: list[dict] | None) -> str:
+    """Retrieved chunks as a numbered block (done for you)."""
+    if not hits:
+        return "(none)"
+    return "\n\n".join(f"[{i}] ({h['source']}) {h['text']}" for i, h in enumerate(hits, 1))
+
+
+def build_messages(question: str, hits: list[dict] | None = None) -> list[dict]:
+    """EXERCISE C4 — return cache-friendly messages for the gateway.
+
+    This version WORKS but defeats caching three ways:
+      1. a timestamp at the very top changes the prefix on every call
+      2. the question comes before the handbook, so the prefix differs per question
+      3. nothing is marked for caching
+
+    Rewrite it so that:
+      - messages[0] is a system message whose content is a list with ONE text
+        block: SYSTEM_PROMPT + "\\n\\n" + handbook(), carrying
+        "cache_control": {"type": "ephemeral"}
+          [{"role": "system", "content": [{"type": "text", "text": ...,
+                                           "cache_control": {"type": "ephemeral"}}]}]
+      - the LAST message is the user message with the dynamic parts:
+        format_hits(hits) and then the question
+      - no timestamp anywhere in the static part
+
+    Self-check: python -m checks.check_caching  (live part needs the gateway)
+    """
+    now = datetime.now().isoformat(timespec="seconds")
+    return [
+        {
+            "role": "system",
+            "content": (
+                f"Current time: {now}\n"
+                f"Question: {question}\n\n"
+                f"{SYSTEM_PROMPT}\n\nTeam handbook:\n{handbook()}\n\n"
+                f"Extra context:\n{format_hits(hits)}"
+            ),
+        },
+        {"role": "user", "content": question},
+    ]

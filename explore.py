@@ -36,7 +36,7 @@ def collection():
 
 @lru_cache(maxsize=1)
 def encoder() -> SentenceTransformer:
-    return SentenceTransformer(config.EMBED_MODEL)
+    return SentenceTransformer(config.EMBED_MODEL, device=config.EMBED_DEVICE)
 
 
 def embed(text: str) -> np.ndarray:

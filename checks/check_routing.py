@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import sys
 
-from src.models import CHEAP_MODEL, MID_MODEL, STRONG_MODEL, model_for_step, pick_model
+from src.cost import CHEAP_MODEL, MID_MODEL, STRONG_MODEL, model_for_step, pick_model
 
 # Labelled questions: (question, expected tier)
 QUESTIONS = [

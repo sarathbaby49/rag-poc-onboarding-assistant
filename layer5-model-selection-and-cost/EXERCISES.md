@@ -18,8 +18,8 @@ exercise shows costs through it). Difficulty: 🟢 easy · 🟡 medium · 🔵 e
 - [ ] `python -m checks.check_llm` passes
 - [ ] Vector index built: `python -m src.ingest`
 
-**Files you edit:** `src/cost.py` (C1), `src/models.py` (C2, C3),
-`src/caching.py` (C4). You don't edit `src/cost_helper.py` — it's the plumbing.
+**Files you edit:** `src/cost.py` — all four exercises (C1, C2, C3, C4) live in
+this one file, in that order. You don't edit `src/cost_helper.py` — it's the plumbing.
 
 **Self-check** (instant ✅/❌, no key needed except the live caching check):
 
@@ -35,8 +35,8 @@ python -m checks.check_caching    # C4 (+ a live check if the gateway is set)
 streamlit run cost_lab.py
 ```
 
-Stuck or out of time? Reference answers are in `solutions/` (`cost.py`,
-`models.py`, `caching.py`) — try first, then peek.
+Stuck or out of time? Reference answers are in `solutions/cost.py` — try
+first, then peek.
 
 ---
 
@@ -80,7 +80,7 @@ appears under yours as a cross-check.
 **Why:** routing is the biggest single cost lever. “What's the repo URL?” doesn't
 need the strongest model.
 
-**File:** `src/models.py` → `pick_model(question)`
+**File:** `src/cost.py` → `pick_model(question)`
 
 Right now it always returns `STRONG_MODEL`. Write a rule that sends short factual
 lookups to `CHEAP_MODEL` and debugging, reasoning or code questions to
@@ -103,7 +103,7 @@ question “easy” or “hard”. Is the extra call worth it? (Use C1 to find o
 **Why:** model choice is per *step*, not per app. In the Layer 4 onboarding-plan
 graph, 3 of 6 nodes need no model at all, and the ones that do need different tiers.
 
-**File:** `src/models.py` → `model_for_step(step, attempts)`
+**File:** `src/cost.py` → `model_for_step(step, attempts)`
 
 | Step | Task | Target |
 |------|------|--------|
@@ -125,7 +125,7 @@ graph from `solutions/graph.py`, so this works even if your Layer 4 graph isn't 
 **Why:** the repeated start of a prompt can cost ~10% of the normal price, but
 only if it's byte-for-byte identical every time.
 
-**File:** `src/caching.py` → `build_messages(question, hits)`
+**File:** `src/cost.py` → `build_messages(question, hits)`
 
 The current version works but breaks caching three ways: a timestamp at the
 top, the question before the handbook, and nothing marked for caching. Rewrite

@@ -27,6 +27,9 @@ CHUNK_OVERLAP = 120         # characters shared between neighbours (keeps contex
 # Self-hosted, free, runs offline after first download. This is the "encoder"
 # that turns text into vectors so we can compare meaning, not just keywords.
 EMBED_MODEL = "all-MiniLM-L6-v2"   # 384-dim, fast, good enough for a demo
+# CPU is plenty for this small model, and current CUDA builds of torch crash on
+# older laptop GPUs (cudaErrorNoKernelImageForDevice) instead of falling back.
+EMBED_DEVICE = "cpu"
 
 # --- Retrieval (Layer 3) -----------------------------------------------------
 TOP_K = 4                   # how many chunks to feed the model as context

@@ -106,7 +106,7 @@ div[data-testid="stFormSubmitButton"] button {border-radius:999px !important;
 # --- resources ---------------------------------------------------------------
 @st.cache_resource(show_spinner="Loading embedding model…")
 def get_encoder(model_name: str) -> SentenceTransformer:
-    return SentenceTransformer(model_name)
+    return SentenceTransformer(model_name, device=config.EMBED_DEVICE)
 
 
 def get_collection():

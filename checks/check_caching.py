@@ -12,7 +12,7 @@ import sys
 import time
 
 from src import config
-from src.caching import SYSTEM_PROMPT, build_messages, handbook
+from src.cost import SYSTEM_PROMPT, build_messages, handbook
 
 HITS = [{"text": "Run `make dev` to start the API on port 8000.", "source": "setup.md"}]
 

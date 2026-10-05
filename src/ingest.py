@@ -124,7 +124,7 @@ def build_index(chunker=chunk_text_smart) -> None:
     print(f"  {len(docs)} documents -> {len(chunks)} chunks")
 
     print(f"Embedding with {config.EMBED_MODEL} (first run downloads the model) ...")
-    encoder = SentenceTransformer(config.EMBED_MODEL)
+    encoder = SentenceTransformer(config.EMBED_MODEL, device=config.EMBED_DEVICE)
     # normalize_embeddings + cosine space => similarity scores land in an
     # intuitive 0..1 range (higher = more similar), nice for the demo.
     embeddings = encoder.encode(chunks, show_progress_bar=True, normalize_embeddings=True).tolist()

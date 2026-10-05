@@ -23,7 +23,7 @@ from src import config
 @lru_cache(maxsize=1)
 def _encoder() -> SentenceTransformer:
     # Cached so we load the embedding model into memory only once.
-    return SentenceTransformer(config.EMBED_MODEL)
+    return SentenceTransformer(config.EMBED_MODEL, device=config.EMBED_DEVICE)
 
 
 @lru_cache(maxsize=1)

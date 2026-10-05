@@ -16,9 +16,7 @@ up.
 | G1, G2, G3 (graph)  | `solutions/graph.py`  | `src/graph.py` |
 | LS1, LS2 (LangSmith) | `solutions/langsmith_utils.py` | `src/langsmith_utils.py` |
 | MCP1, MCP2 (MCP server) | `solutions/mcp_server.py` | `src/mcp_server.py` |
-| C1 (cost meter) | `solutions/cost.py` | `src/cost.py` |
-| C2, C3 (routing) | `solutions/models.py` | `src/models.py` |
-| C4 (prompt caching) | `solutions/caching.py` | `src/caching.py` |
+| C1–C4 (cost, routing, caching) | `solutions/cost.py` | `src/cost.py` |
 
 To use a solution, copy the relevant function/method body into the matching
 `src/` file — don't import from here.

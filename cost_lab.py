@@ -100,7 +100,8 @@ if mode == "Compare models":
                             format_func=cost_helper.short_name)
     if st.button("Run", type="primary", disabled=not (question and picked)):
         try:
-            messages, hits = cost_helper.rag_messages(question)
+            with st.spinner("Retrieving context…"):
+                messages, hits = cost_helper.rag_messages(question)
         except Exception as exc:  # noqa: BLE001
             st.error(f"Retrieval failed — did you run `python -m src.ingest`? ({exc})")
             st.stop()
@@ -124,18 +125,45 @@ if mode == "Compare models":
 
 # ── Mode: Router (C2) ─────────────────────────────────────────────────────────
 elif mode == "Router · C2":
-    models = _reload("src.models")
     st.subheader("Route each question to the cheapest model that can handle it")
-    if models.pick_model("What's the repo URL?") == config.STRONG_MODEL:
-        st.info("C2 isn't done yet: every question goes to the strong model. Edit `pick_model` in `src/models.py`.")
-    question = st.text_input("Question", "What's the repo URL?",
-                             help="Try a lookup (“Which port does the API run on?”) and a debugging question (“Why does my migration fail?”)")
-    if question:
-        chosen = models.pick_model(question)
-        st.write(f"`pick_model` chooses **{cost_helper.short_name(chosen)}**")
+    if cost_mod.pick_model("What's the repo URL?") == config.STRONG_MODEL:
+        st.info("C2 isn't done yet: every question goes to the strong model. Edit `pick_model` in `src/cost.py`.")
+
+    TIER_LABEL = {config.CHEAP_MODEL: "🟢 cheap", config.MID_MODEL: "🟡 mid", config.STRONG_MODEL: "🔴 strong"}
+
+    def _tier_label(model: str) -> str:
+        return TIER_LABEL.get(model, model)
+
+    # Grounded in the actual ingested docs (data/sample_company), so retrieval
+    # returns real hits, not just a plausible-sounding question.
+    SAMPLES = [
+        ("🔌 API port", "Which port does the API run on?"),               # setup.md
+        ("💳 India payments", "Which payment provider do we use for customers in India?"),  # payments.md
+        ("🔐 Refresh tokens", "Explain how refresh tokens work in our auth flow and the security trade-offs."),  # authentication.md
+    ]
+
+    st.caption("How `pick_model` routes a few samples right now:")
+    st.dataframe(
+        [{"question": q, "routed to": _tier_label(cost_mod.pick_model(q))} for _, q in SAMPLES],
+        hide_index=True, width="stretch",
+    )
+
+    ss.setdefault("router_question", SAMPLES[0][1])
+    st.caption("Try a sample, or paste your own below:")
+    cols = st.columns(len(SAMPLES))
+    for col, (label, sample_q) in zip(cols, SAMPLES):
+        if col.button(label, width="stretch"):
+            ss.router_question = sample_q
+
+    question = st.text_input("Question", key="router_question",
+                             help="Pick a sample above, or paste your own — a short lookup routes cheap, a debugging/reasoning question routes strong.")
+
     if st.button("Ask", type="primary", disabled=not question):
+        chosen = cost_mod.pick_model(question)
+        st.markdown(f"**Routed to:** {_tier_label(chosen)} — `{cost_helper.short_name(chosen)}`")
         try:
-            messages, _ = cost_helper.rag_messages(question)
+            with st.spinner("Retrieving context…"):
+                messages, _ = cost_helper.rag_messages(question)
             with st.spinner(f"Asking {cost_helper.short_name(chosen)}…"):
                 res = cost_helper.call(messages, chosen)
         except Exception as exc:  # noqa: BLE001
@@ -152,12 +180,11 @@ elif mode == "Router · C2":
 
 # ── Mode: Plan graph (C3) ─────────────────────────────────────────────────────
 elif mode == "Plan graph · C3":
-    models = _reload("src.models")
     st.subheader("A model per step in the onboarding-plan graph")
     st.write("plan (parse request → draft plan) → retrieve → check_grounding → replan? → mentor → publish. "
              "Only *parse_request*, *draft_plan* and *replan* call a model; your `model_for_step` picks which.")
-    if models.model_for_step("parse_request") == config.STRONG_MODEL:
-        st.info("C3 isn't done yet: every step uses the strong model. Edit `model_for_step` in `src/models.py`.")
+    if cost_mod.model_for_step("parse_request") == config.STRONG_MODEL:
+        st.info("C3 isn't done yet: every step uses the strong model. Edit `model_for_step` in `src/cost.py`.")
 
     if "graph_checkpointer" not in ss:
         from langgraph.checkpoint.memory import MemorySaver
@@ -222,9 +249,8 @@ elif mode == "Plan graph · C3":
 
 # ── Mode: Caching (C4) ────────────────────────────────────────────────────────
 elif mode == "Caching · C4":
-    caching = _reload("src.caching")
     st.subheader("Static first, dynamic last")
-    prefix_tokens = len(caching.SYSTEM_PROMPT + caching.handbook()) // 4
+    prefix_tokens = len(cost_mod.SYSTEM_PROMPT + cost_mod.handbook()) // 4
     st.write(f"Your prompt ships the whole team handbook (~{prefix_tokens:,} tokens) on every call. "
              "With caching, the second call should read it from the cache at ~10% of the price.")
     model = st.selectbox("Model", list(TIERS.values()), index=1, format_func=cost_helper.short_name)
@@ -235,7 +261,7 @@ elif mode == "Caching · C4":
         for q in (q1, q2):
             try:
                 with st.spinner(f"Sending: {q}"):
-                    results.append(cost_helper.call(caching.build_messages(q), model, max_tokens=200))
+                    results.append(cost_helper.call(cost_mod.build_messages(q), model, max_tokens=200))
             except Exception as exc:  # noqa: BLE001
                 st.error(str(exc))
                 st.stop()
