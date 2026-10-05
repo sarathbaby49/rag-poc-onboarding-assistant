@@ -28,6 +28,7 @@ from whatever the gateway returns):
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from functools import lru_cache
@@ -123,6 +124,13 @@ def monthly_cost(cost_per_question: float, questions_per_month: int = 100_000) -
 #      backend engineer"). The Cost Lab wires your function into the graph
 #      for you.
 # ============================================================================
+
+
+_HARD_WORDS = (
+    "why", "error", "fail", "fix", "debug", "explain", "compare", "design",
+    "trace", "exception", "broken", "crash", "refactor", "suggest", "trade-off",
+)
+_CODE_PATTERN = re.compile(r"(traceback|\.py\b|line \d+|\b[45]\d\d\b|`|\(\)|::|=>)", re.I)
 
 
 def pick_model(question: str) -> str:
