@@ -221,5 +221,9 @@ __marimo__/
 .chroma/
 .profiles/
 
+# Layer 6 runtime data: local trace log + saved eval runs
+.traces/
+.eval_runs/
+
 # Lab search history (runtime data)
 .search_history.json

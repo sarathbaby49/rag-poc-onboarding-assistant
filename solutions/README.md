@@ -16,6 +16,12 @@ up.
 | G1, G2, G3 (graph)  | `solutions/graph.py`  | `src/graph.py` |
 | LS1, LS2 (LangSmith) | `solutions/langsmith_utils.py` | `src/langsmith_utils.py` |
 | MCP1, MCP2 (MCP server) | `solutions/mcp_server.py` | `src/mcp_server.py` |
+| EV1–EV4 (evaluation, Layer 6 Lab 1) | `solutions/eval.py` | `src/eval/run_eval.py` |
+| OB1–OB3 (observability, Layer 6 Lab 2) | `solutions/observability.py` | `src/observability.py` |
 
 To use a solution, copy the relevant function/method body into the matching
 `src/` file — don't import from here.
+
+Layer 6 presenters: the Production Lab's **Code under test → Reference solutions**
+switch, and `--solutions` on the Layer 6 CLIs and checks, run these files directly
+for the live demo.

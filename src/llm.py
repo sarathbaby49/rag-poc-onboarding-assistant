@@ -10,6 +10,8 @@ Messages are OpenAI-style dicts:
 
 from __future__ import annotations
 
+import time
+
 import litellm
 
 from src import config
@@ -29,6 +31,30 @@ def complete(messages: list[dict], model: str | None = None, **kwargs) -> str:
         **kwargs,
     )
     return response.choices[0].message.content or ""
+
+
+def complete_with_usage(messages: list[dict], model: str | None = None, **kwargs) -> dict:
+    """Like complete(), but also returns what observability needs (Layer 6).
+
+    Returns {"text", "model", "input_tokens", "output_tokens", "latency_s"}.
+    """
+    kwargs.setdefault("timeout", config.LLM_TIMEOUT)
+    start = time.perf_counter()
+    response = litellm.completion(
+        model=model or config.LLM_MODEL,
+        messages=messages,
+        api_base=config.LITELLM_PROXY_API_BASE or None,
+        api_key=config.LITELLM_PROXY_API_KEY or None,
+        **kwargs,
+    )
+    usage = getattr(response, "usage", None)
+    return {
+        "text": response.choices[0].message.content or "",
+        "model": model or config.LLM_MODEL,
+        "input_tokens": getattr(usage, "prompt_tokens", 0) or 0,
+        "output_tokens": getattr(usage, "completion_tokens", 0) or 0,
+        "latency_s": time.perf_counter() - start,
+    }
 
 
 def ask(prompt: str, system: str | None = None, **kwargs) -> str:

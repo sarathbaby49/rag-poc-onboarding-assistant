@@ -55,3 +55,24 @@ LANGSMITH_TRACING_ENABLED = os.getenv("LANGSMITH_TRACING", "false").lower() == "
 LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY", "")
 LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "onboarding-assistant")
 LANGSMITH_ENDPOINT = os.getenv("LANGSMITH_ENDPOINT", "https://api.smith.langchain.com")
+
+# --- Evaluation & production (Layer 6) ----------------------------------------
+# A gateway call that hangs is worse than one that fails fast, especially live.
+LLM_TIMEOUT = float(os.getenv("LLM_TIMEOUT", "60"))
+# The judge can be a different (often cheaper) model than the one being graded.
+JUDGE_MODEL = os.getenv("JUDGE_MODEL") or LLM_MODEL
+
+# Local trace log (a homemade LangSmith/Langfuse, so you can see inside one).
+TRACE_DIR = BASE_DIR / ".traces"
+TRACE_FILE = TRACE_DIR / "traces.jsonl"
+EVAL_RUNS_DIR = BASE_DIR / ".eval_runs"     # saved eval runs, for regression compare
+
+# USD per 1M tokens (input, output), matched by substring of the model name.
+# Check your provider's current pricing before trusting these numbers.
+PRICES_PER_MILLION = {
+    "claude-sonnet-5": (2.00, 10.00),
+    "claude-opus-5": (4.00, 20.00),
+    "claude-haiku-4-5": (1.00, 5.00),
+    "gpt-4.1-mini": (0.40, 1.60),
+}
+DEFAULT_PRICE_PER_MILLION = (2.00, 10.00)

@@ -48,6 +48,15 @@ onboarding graph interactively, test MCP tools, and verify LangSmith config:
 streamlit run orchestration_lab.py
 ```
 
+Working the **evaluation & production** labs (Lab 1: EV1–EV4, Lab 2: OB1–OB3)?
+The **Production Lab** is the matching UI — chat with per-answer traces, run the
+golden-set eval and the SHIP/BLOCK regression gate, and read the
+latency/cost dashboard:
+
+```bash
+streamlit run production_lab.py
+```
+
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).
 > The RAG-generation layer (`src/rag.py`) calls models through the **LiteLLM
 > gateway** — no direct Claude/OpenAI key, just the proxy URL + key in `.env`
@@ -71,7 +80,8 @@ streamlit run orchestration_lab.py
 | 📝 **Exercise** | **Memory** — session window + profile persistence | `src/memory.py` |
 | 📝 **Exercise** | **Generation** — grounded, cited answer (G1), abstain (G2), citations (G3), memory (G4) | `src/rag.py`, `app.py` |
 |  📝 **Exercise** | **Agents & Orchestration** (LangChain, LangGraph, LangSmith, MCP)         | `[layer4-agents-and-orchestration/](layer4-agents-and-orchestration/)` |
-| 🔒 Later layers | Agent, guided flow, MCP, routing, eval | `models.py`, `eval/` |
+|  📝 **Exercise** | **Evaluation & Production** (eval suite + regression gate, tracing + PII redaction) | [`layer6-evaluation-and-production/`](layer6-evaluation-and-production/) |
+| 🔒 Later layers | Model routing | `models.py` |
 
 - **✅ Works** — runs today; don't edit, build against it.
 - **📝 Exercise** — a stub that raises `NotImplementedError`; you implement it and
@@ -90,6 +100,8 @@ python -m checks.check_agent         # A1 (tools) + A2 (agent) + A3 (run)
 python -m checks.check_graph         # G1 (nodes) + G2 (routing) + G3 (graph)
 python -m checks.check_mcp           # MCP1 (server + tools) + MCP2 (resources)
 python -m checks.check_langsmith     # LS1 (config) + LS2 (@traceable)
+python -m checks.check_eval          # EV1–EV4 (golden set, judge, regression gate)  ← Layer 6, Lab 1
+python -m checks.check_observability # OB1–OB3 (redaction, tracing, dashboard)       ← Layer 6, Lab 2
 ```
 
 Reference answers live in **`solutions/`** — try the exercise first, then peek if
@@ -116,12 +128,17 @@ onboarding-assistant-rag/
 ├── retrieval_lab.py          # ✅ Streamlit lab for the R exercises
 ├── rag_app.py                # ✅ Streamlit lab for the G exercises (crash-safe)
 ├── orchestration_lab.py       # ✅ Streamlit lab for agent + graph + MCP + LangSmith exercises
+├── production_lab.py         # ✅ Streamlit lab + live demo for Layer 6 (eval + traces)
 ├── app.py                    # 🔒 Streamlit end-user demo (works once src/rag.py is built)
 ├── data/sample_company/      # Acme Shop corpus: docs (payments, auth, setup),
 │                             #   code, a Jira export & Slack history (~30 chunks)
 ├── layer4-agents-and-orchestration/  # 📦 separate session
 │   ├── README.md             #   session setup, prerequisites, concepts
 │   └── EXERCISES.md          #   hands-on exercises (A1–3, G1–3, MCP1–2, LS1–2)
+├── layer6-evaluation-and-production/  # 📦 separate session
+│   ├── README.md             #   setup, exercise map, concepts
+│   ├── EXERCISES.md          #   Lab 1 (EV1–4) + Lab 2 (OB1–3)
+│   └── DEMO.md               #   presenter live-demo script
 ├── notes/                    # 📓 concept notebooks (Layer 4 presenter walk-through)
 │   ├── langchain.ipynb
 │   ├── langgraph.ipynb
@@ -132,14 +149,18 @@ onboarding-assistant-rag/
 │   ├── check_agent.py        # ← Layer 4
 │   ├── check_graph.py        # ← Layer 4
 │   ├── check_mcp.py          # ← Layer 4
-│   └── check_langsmith.py    # ← Layer 4
+│   ├── check_langsmith.py    # ← Layer 4
+│   ├── check_eval.py         # ← Layer 6
+│   └── check_observability.py # ← Layer 6
 ├── solutions/                # reference answers — try first!
 │   ├── retrieve.py
 │   ├── memory.py
 │   ├── agent.py              # ← Layer 4
 │   ├── graph.py              # ← Layer 4
 │   ├── mcp_server.py         # ← Layer 4
-│   └── langsmith_utils.py    # ← Layer 4
+│   ├── langsmith_utils.py    # ← Layer 4
+│   ├── eval.py               # ← Layer 6
+│   └── observability.py      # ← Layer 6
 └── src/
     ├── config.py             # ✅ all the dials
     ├── ingest.py             # ✅ builds the index
@@ -151,8 +172,11 @@ onboarding-assistant-rag/
     ├── graph.py              # 📝 EXERCISE (G1, G2, G3) — Layer 4
     ├── mcp_server.py         # 📝 EXERCISE (MCP1, MCP2) — Layer 4
     ├── langsmith_utils.py    # 📝 EXERCISE (LS1, LS2) — Layer 4
+    ├── assistant.py          # ✅ Layer 6 system under test (prompt versions, traced calls)
+    ├── observability.py      # 📝 EXERCISE (OB1–OB3) — Layer 6, Lab 2
+    ├── layer6_support.py     # ✅ gateway probe + solutions switch for the lab
     ├── models.py             # 🔒 model routing (later layer)
-    └── eval/                 # 🔒 evaluation layer
+    └── eval/                 # 📝 EXERCISE (EV1–EV4) — Layer 6, Lab 1: golden set + run_eval.py
 ```
 
 ## Glossary
