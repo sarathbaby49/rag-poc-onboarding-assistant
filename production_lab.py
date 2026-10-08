@@ -1,6 +1,6 @@
 """Production Lab — a Streamlit UI for the Layer 6 labs (and the live demo).
 
-    streamlit run production_lab.py
+    streamlit run production_lab.py --server.fileWatcherType none
 
 Modes (sidebar):
   - Ask      — chat with the assistant; every answer shows its trace (Lab 2: OB2)

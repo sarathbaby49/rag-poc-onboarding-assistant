@@ -9,14 +9,14 @@ Three short live demos around the two labs, all in one app. Total demo time:
 git checkout layer-6 && git pull
 source .venv/bin/activate
 python -m checks.check_llm                       # gateway OK?
-python -m src.ingest                             # "Indexed 30 chunks"
+python -m src.ingest                             # "Indexed 38 chunks"
 python -m src.observability --clear              # empty trace log for a clean demo
 rm -rf .eval_runs                                # no stale eval runs
 
 # Optional: pre-run the v1 baseline so the room only waits for v2
 python -m src.eval.run_eval --prompt v1 --solutions
 
-streamlit run production_lab.py
+streamlit run production_lab.py --server.fileWatcherType none
 ```
 
 In the sidebar set **Code under test → Reference solutions**. Zoom the browser

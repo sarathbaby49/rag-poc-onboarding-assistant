@@ -10,9 +10,9 @@ Difficulty: 🟢 easy · 🟡 medium · 🔵 explore.
 ## Before you start
 
 - [ ] `git checkout layer-6 && git pull`
-- [ ] `python -m src.ingest` done ("Indexed 30 chunks")
+- [ ] `python -m src.ingest` done ("Indexed 38 chunks")
 - [ ] `python -m checks.check_llm` passes (needs the company network / VPN)
-- [ ] `streamlit run production_lab.py` opens
+- [ ] `streamlit run production_lab.py --server.fileWatcherType none` opens
 
 **Files you edit:** `src/eval/run_eval.py` (Lab 1), `src/observability.py` (Lab 2).
 

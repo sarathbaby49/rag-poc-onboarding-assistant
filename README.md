@@ -54,7 +54,7 @@ golden-set eval and the SHIP/BLOCK regression gate, and read the
 latency/cost dashboard:
 
 ```bash
-streamlit run production_lab.py
+streamlit run production_lab.py --server.fileWatcherType none
 ```
 
 > **Retrieval + Memory need no API key** (local embeddings + plain Python).

@@ -17,7 +17,7 @@ in the talk; there's no hands-on lab for it this session.
 
 ## Prerequisites
 
-1. **Vector index built** — `python -m src.ingest` ("Indexed 30 chunks").
+1. **Vector index built** — `python -m src.ingest` ("Indexed 38 chunks").
 2. **LLM gateway reachable** — `python -m checks.check_llm` must pass. The gateway
    is only reachable on the company network/VPN; without it, the key-free
    exercises still work (EV1, EV2, EV4, OB1, OB2*, OB3).
@@ -60,8 +60,14 @@ first, then peek.
 ## The lab app
 
 ```bash
-streamlit run production_lab.py
+streamlit run production_lab.py --server.fileWatcherType none
 ```
+
+> **Why `--server.fileWatcherType none`?** Streamlit's file watcher inspects every
+> loaded module, which makes LiteLLM's lazily-loaded internals import themselves
+> mid-load (`ImportError: cannot import name 'RouteContext'`). The lab reloads
+> `src/eval/run_eval.py` and `src/observability.py` on every interaction itself,
+> so your edits still show up without the watcher.
 
 | Mode | Shows | Lab |
 |------|-------|-----|

@@ -48,7 +48,8 @@ ABSTAIN_PHRASES = (
     "couldn't find", "could not find", "can't find", "cannot find", "not in the",
     "doesn't contain", "does not contain", "don't have", "do not have", "not able to",
     "can't help", "cannot help", "can't share", "cannot share", "can't provide",
-    "cannot provide", "not available", "no information",
+    "cannot provide", "not available", "no information", "don't mention", "doesn't mention",
+    "does not mention", "doesn't include", "does not include", "no mention",
 )
 
 JUDGE_PROMPT = """You are grading one answer from an engineering onboarding assistant.

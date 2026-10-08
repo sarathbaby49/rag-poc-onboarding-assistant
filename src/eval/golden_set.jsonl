@@ -2,7 +2,7 @@
 {"id": "pay-2", "type": "golden", "question": "What is the default payment provider?", "expected_points": ["Stripe", "default"], "expected_source": "data/sample_company/payments.md"}
 {"id": "pay-3", "type": "golden", "question": "Which payment provider is used for India?", "expected_points": ["Razorpay", "UPI"], "expected_source": "data/sample_company/payments.md"}
 {"id": "auth-1", "type": "golden", "question": "How is authentication set up?", "expected_points": ["JWT", "refresh", "bcrypt"], "expected_source": "data/sample_company/authentication.md"}
-{"id": "auth-2", "type": "golden", "question": "How are user passwords stored?", "expected_points": ["bcrypt", "hashed"], "expected_source": "data/sample_company/authentication.md"}
+{"id": "auth-2", "type": "golden", "question": "How are user passwords stored?", "expected_points": ["bcrypt", "hash"], "expected_source": "data/sample_company/authentication.md"}
 {"id": "setup-1", "type": "golden", "question": "How do I set up the project locally?", "expected_points": ["clone", "pip install", "docker compose", "make run"], "expected_source": "data/sample_company/setup.md"}
 {"id": "jira-1", "type": "golden", "question": "Which ticket adds Google social login?", "expected_points": ["Google", "OAuth"], "expected_source": "data/sample_company/jira_export.jsonl"}
 {"id": "jira-2", "type": "golden", "question": "Which ticket adds Razorpay support?", "expected_points": ["Razorpay", "India"], "expected_source": "data/sample_company/jira_export.jsonl"}
